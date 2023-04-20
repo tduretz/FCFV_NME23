@@ -2,3 +2,13 @@ name = "FCFV_NME23"
 uuid = "70c165c0-72bb-4b8f-9bf9-76d6fc7d8171"
 authors = ["tduretz <duretz@uni-frankfurt.de>"]
 version = "0.1.0"
+
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Triangulate = "f7e6ffb2-c36d-4f8f-a77e-16e897189344"
