@@ -63,7 +63,7 @@ function ViscousInclusion()
     τr          = 4
     solver      = 1
     Formulation = :SymmetricGradient
-    Formulation = :Gradient
+    # Formulation = :Gradient
 
     # Generate mesh 
     nx, ny = 60, 60
@@ -95,41 +95,36 @@ function ViscousInclusion()
     SyyNeu = zeros(mesh.nf)
     SxyNeu = zeros(mesh.nf)
     SyxNeu = zeros(mesh.nf)
-    ḡ      = zeros(mesh.nel,mesh.nf_el, 2)
 
     # Set up Stokes problem
-    @printf("Model configuration :")
+    @printf("Model configuration :\n")
     @time SetUpProblem!(mesh, Pa, Vxa, Vya, Sxxa, Syya, Sxya, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, sex, sey, R, η, Formulation)
 
     # Compute mesh properties for FCFV
-    @printf("Compute FCFV vectors:")
+    @printf("Compute FCFV vectors:\n")
     mesh.τ = τr.*ones(mesh.nf)  # Stabilisation per element
     @time ae, be, ze = ComputeFCFV(mesh, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, τr, Formulation)
     
-    @show minimum(mesh.τ)
-    @show maximum(mesh.τ)
     # Assemble element matrices and RHS
-    @printf("Compute element matrices:")                      
-    @time Kuu, Muu, Kup, fu, fp, tsparse = ElementAssemblyLoop(mesh, ae, be, ze, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, ḡ, 1, Formulation)
+    @printf("Compute element matrices:\n")                      
+    @time Kuu, Muu, Kup, fu, fp, tsparse = ElementAssemblyLoop(mesh, ae, be, ze, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, Formulation)
     println("Sparsification: ", tsparse)
 
     # # Solve for hybrid variables
-    @printf("Linear solve:")
+    @printf("Linear solve:\n")
     Pe .= Pa
     @time StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, Muu, solver; tol=5e-8, penalty=1e4)
 
-    # # Reconstruct element values
-    # @printf("Compute element values:")
-    # @time Vxe, Vye, Txxe, Tyye, Txye = ComputeElementValues(mesh, Vxh, Vyh, Pe, ae, be, ze, VxDir, VyDir, Formulation)
+    # Reconstruct element values
+    @printf("Compute element values:\n")
+    @time Vxe, Vye, Txxe, Tyye, Txye = ComputeElementValues(mesh, Vxh, Vyh, Pe, ae, be, ze, VxDir, VyDir, Formulation)
     
-    # # Evaluate residuals
-    # Feq1, Feq2, Feq3 = ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, Cauchy)
-    # @show norm(Feq1) 
-    # @show norm(Feq2)
-    # @show norm(Feq3)
+    # Evaluate residuals
+    @printf("Evaluate residuals:\n")
+    ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, Formulation)
 
     # Visualise
-    @printf("Visualisation:")
+    @printf("Visualisation:\n")
     @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:jet1, min_v =-3, max_v =3 )
 
 end

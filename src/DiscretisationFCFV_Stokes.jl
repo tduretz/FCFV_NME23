@@ -1,4 +1,3 @@
-# @turbo was removed
 function ComputeFCFV(mesh, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, τr, Formulation)
 
     α = zeros(mesh.nel)
@@ -6,7 +5,7 @@ function ComputeFCFV(mesh, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNe
     Ζ = zeros(mesh.nel,2,2)
 
     # Loop through elements
-     for e=1:mesh.nel 
+    @inbounds for e=1:mesh.nel 
         β[e,1] += mesh.Ω[e]*sex[e] # Source term
         β[e,2] += mesh.Ω[e]*sey[e] # Source term
         # Loop through faces
@@ -83,7 +82,7 @@ end
 
 #--------------------------------------------------------------------#
 
-function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, gbar, new, Formulation) 
+function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation) 
 
     # Assemble element matrices and rhs
     Kuui = zeros(2*mesh.nf_el, 2*mesh.nf_el, mesh.nel)
@@ -139,19 +138,19 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
 
                 # Element matrix 
                 if Formulation==:Gradient
-                    Kuuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ȷ*ni_x*nj_x) - τi*δ) # u1u1
-                    Kuuv[j+nf, i   , e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ȷ*ni_y*nj_x)       ) # u1u2
-                    Kuuv[j   , i+nf, e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ȷ*ni_x*nj_y)       ) # u2u1
-                    Kuuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ȷ*ni_y*nj_y) - τi*δ) # u2u2
+                    Kuuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + ȷ*ni_x*nj_x) - τi*δ) # u1u1
+                    Kuuv[j+nf, i   , e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       ȷ*ni_y*nj_x)       ) # u1u2
+                    Kuuv[j   , i+nf, e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       ȷ*ni_x*nj_y)       ) # u2u1
+                    Kuuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + ȷ*ni_y*nj_y) - τi*δ) # u2u2
                 elseif Formulation==:SymmetricGradient
-                    Kuuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ni_x*nj_x) - τi*δ) # u1u1
-                    Kuuv[j+nf, i   , e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ni_y*nj_x)       ) # u1u2
-                    Kuuv[j   , i+nf, e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ni_x*nj_y)       ) # u2u1
-                    Kuuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ni_y*nj_y) - τi*δ) # u2u2
+                    Kuuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + ni_x*nj_x) - τi*δ) # u1u1
+                    Kuuv[j+nf, i   , e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       ni_y*nj_x)       ) # u1u2
+                    Kuuv[j   , i+nf, e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       ni_x*nj_y)       ) # u2u1
+                    Kuuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + ni_y*nj_y) - τi*δ) # u2u2
                 end
                 # PC - deactivate terms from new interface implementation
-                Muuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + 0*new*ȷ*ni_x*nj_x) - τi*δ) # u1u1
-                Muuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + 0*new*ȷ*ni_y*nj_y) - τi*δ) # u2u2
+                Muuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*ninj - τi*δ) # u1u1
+                Muuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*ninj - τi*δ) # u2u2
 
                 # Connectivity
                 Kuui[j   , i   , e]  = nodei;         Kuui[j+nf, i   , e]  = nodei
@@ -164,14 +163,14 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
             tix   = ni_x*σxxNeu[nodei] + ni_y*σxyNeu[nodei]
             tiy   = ni_x*σyxNeu[nodei] + ni_y*σyyNeu[nodei]   
             if Formulation==:Gradient
-                niΖ_x = ni_x*(Ζ[e,1,1] +  new*ȷ*Ζ[e,1,1]) + ni_y*(Ζ[e,2,1] + new*ȷ*Ζ[e,1,2]) 
-                niΖ_y = ni_x*(Ζ[e,1,2] +  new*ȷ*Ζ[e,2,1]) + ni_y*(Ζ[e,2,2] + new*ȷ*Ζ[e,2,2])
+                niΖ_x = ni_x*(Ζ[e,1,1] +  ȷ*Ζ[e,1,1]) + ni_y*(Ζ[e,2,1] + ȷ*Ζ[e,1,2]) 
+                niΖ_y = ni_x*(Ζ[e,1,2] +  ȷ*Ζ[e,2,1]) + ni_y*(Ζ[e,2,2] + ȷ*Ζ[e,2,2])
             elseif Formulation==:SymmetricGradient
-                niΖ_x = ni_x*(Ζ[e,1,1]) + ni_y*(Ζ[e,2,1]) 
-                niΖ_y = ni_x*(Ζ[e,1,2]) + ni_y*(Ζ[e,2,2])     
+                niΖ_x = ni_x*Ζ[e,1,1] + ni_y*Ζ[e,2,1] 
+                niΖ_y = ni_x*Ζ[e,1,2] + ni_y*Ζ[e,2,2]     
             end
-            feix  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,1] + ηe*Ωe^-1*niΖ_x - tix*Xi - (1-new)*ȷ*gbar[e,i,1])
-            feiy  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,2] + ηe*Ωe^-1*niΖ_y - tiy*Xi - (1-new)*ȷ*gbar[e,i,2])
+            feix  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,1] + ηe*Ωe^-1*niΖ_x - tix*Xi)# - (1-new)*ȷ*gbar[e,i,1])
+            feiy  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,2] + ηe*Ωe^-1*niΖ_y - tiy*Xi)# - (1-new)*ȷ*gbar[e,i,2])
             # up block
             Kupv[i   , e] -= (bci!=1) * Γi*ni_x
             Kupv[i+nf, e] -= (bci!=1) * Γi*ni_y

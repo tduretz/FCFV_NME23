@@ -1,4 +1,4 @@
-function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, new)
+function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, Formulation)
 
     # reconstruct element value and flux
     nel = mesh.nel
@@ -8,9 +8,8 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
     for e=1:nel    
         nfac     = mesh.nf_el
         vole      = mesh.Ω[e]
-        η         = mesh.ke[e]
         ue[e,:]   = be[e,:]/ae[e]
-        Le[e,:,:] = -1.0/vole * ze[e,:,:];
+        Le[e,:,:] = -1.0/vole * ze[e,:,:]
         τi        = mesh.τ[e]
         for i=1:nfac
             nodei = mesh.e2f[e,i]
@@ -19,10 +18,10 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
                 n         = [mesh.n_x[e,i]; mesh.n_y[e,i]]
                 u         = [Vxh[nodei]; Vyh[nodei]]
                 ue[e,:]   = ue[e,:]   .+ Γi*τi*u'[:]/ae[e]
-                if new==0 || new==1
+                if Formulation == :Gradient
                     Le[e,:,:] = Le[e,:,:] .- 1.0/vole * Γi * (n*u')
-                elseif new==2
-                    Le[e,:,:] = Le[e,:,:] .- 1.0/vole * Γi * (n*u' .+ u'*n)
+                elseif Formulation == :SymmetricGradient
+                    Le[e,:,:] = Le[e,:,:] .- 1.0/vole * Γi * (n*u' .+ u*n')
                 end
             end
         end
@@ -39,10 +38,10 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
         nfac         = mesh.nf_el
         vole         = mesh.Ω[e]
         η            = mesh.ke[e]
-        F_eq1[e,:,:] =  vole*Le[e,:,:]
-        F_eq2[e,1]   =  -sex[e]*vole
-        F_eq2[e,2]   =  -sey[e]*vole
-        F_eq3[e]     =  0.0
+        F_eq1[e,:,:] = vole*Le[e,:,:]
+        F_eq2[e,1]   = -sex[e]*vole
+        F_eq2[e,2]   = -sey[e]*vole
+        F_eq3[e]     = 0.0
         for i=1:nfac
             nodei = mesh.e2f[e,i]
             dAi    = mesh.Γ[e,i]
@@ -55,13 +54,10 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             tiy    = n[1]*SyxNeu[nodei] + n[2]*SyyNeu[nodei] 
             ti     = [tix; tiy]
             u      = [Vxh[nodei]; Vyh[nodei]]
-            
             # Global residual 1 (momentum) 
-            if new==0    
-                F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi  )'  # .+ Ji*gbar[e,i,:]'
-            elseif new==1
+            if Formulation == :Gradient
                 F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi .+ Ji*(n'*η*Le[e,:,:]') )'
-            elseif new==2
+            elseif Formulation == :SymmetricGradient
                 F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi  )'
             end
             F_eq2[e,:]       = F_eq2[e,:] + dAi*taui*ue[e,:]
@@ -69,9 +65,9 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             # Global residual 2 (continuity)
             if mesh.bc[nodei] != 1
                 F_glob2[e]   = F_glob2[e] .+ dAi * u'*n
-                if new==0 || new==1
+                if Formulation == :Gradient
                     F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * n * u'
-                else
+                elseif Formulation == :SymmetricGradient
                     F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * (n*u' .+ u*n')
                 end
                 F_eq2[e,:]   = F_eq2[e,:] .- dAi*taui*u[:]
@@ -79,9 +75,9 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             else
                 udir = [VxDir[nodei]; VyDir[nodei]]
                 F_glob2[e]   = F_glob2[e] .+ dAi * udir'*n
-                if new==0 || new==1
+                if Formulation == :Gradient
                     F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * n * udir'
-                else
+                elseif Formulation == :SymmetricGradient
                     F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * (n*udir' .+ udir.*n')
                 end
                 F_eq2[e,:]   = F_eq2[e,:] .- dAi*taui*udir[:]
@@ -100,8 +96,8 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
         for i=1:nfac
             nodei = mesh.e2f[e,i]
                 if mesh.bc[nodei] != 1
-                F_nodes_x[nodei] = F_nodes_x[nodei] + F_glob1[e,i,1] 
-                F_nodes_y[nodei] = F_nodes_y[nodei] + F_glob1[e,i,2] 
+                F_nodes_x[nodei] += F_glob1[e,i,1] 
+                F_nodes_y[nodei] += F_glob1[e,i,2] 
             end
         end
     end
@@ -113,5 +109,5 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
     @printf("Residual of global equation 1 - y (eq 37a): %2.2e\n", norm(F_nodes_y)/sqrt(length(F_nodes_y)))
     @printf("Residual of global equation 2 - p (eq 37b): %2.2e\n", norm(F_glob2)/sqrt(length(F_glob2)))
 
-    return F_eq1, F_eq2, F_eq3 
+    return
 end
