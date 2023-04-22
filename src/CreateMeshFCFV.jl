@@ -1,4 +1,4 @@
-# @tturbo was removed
+using MAT
 import Triangulate
 
 function FaceStabParam( mesh, τr, mesh_type )
@@ -28,7 +28,7 @@ function FaceStabParam( mesh, τr, mesh_type )
             Γi     = sqrt(dx^2 + dy^2)
 
             # Face stabilisation
-            mesh.τ[nodei] = StabParam(τr, Γi, mesh.Ω[iel], mesh.type, mesh.ke[iel]) 
+            mesh.τ[nodei] = τr#StabParam(τr, Γi, mesh.Ω[iel], mesh.type, mesh.ke[iel]) 
         end
     end
 end
@@ -318,7 +318,7 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
             mesh.Γ[iel,ifac]    = Γi
 
             # Face stabilisation
-            mesh.τ[nodei] = StabParam(τr, Γi, mesh.Ω[iel], mesh.type, mesh.ke[iel]) 
+            mesh.τ[nodei] = τr#StabParam(τr, Γi, mesh.Ω[iel], mesh.type, mesh.ke[iel]) 
         end
     end
 
@@ -729,5 +729,36 @@ function MakeQuadMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC=[2;
     end
     ############# FOR THE PSEUDO-TRANSIENT PURPOSES ONLY #############
 
+    return mesh
+end
+
+function LoadExternalMesh( res, η )
+    mesh        = FCFV_Mesh( )
+    mesh.type   = "Rubén_Mesh3"
+    if res==:LR data = matread("./meshes/Mesh1Ruben.mat") end
+    if res==:MR data = matread("./meshes/Mesh2Ruben.mat") end
+    if res==:HR data = matread("./meshes/Mesh3Ruben.mat") end
+    mesh.nel   = data["nel"]
+    mesh.nf    = data["nf"]
+    mesh.nn_el = data["nn_el"]
+    mesh.nf_el = data["nf_el"]
+    mesh.xn    = data["xn"][:]
+    mesh.yn    = data["yn"][:]
+    mesh.xv    = data["xn"][:]
+    mesh.yv    = data["yn"][:]
+    mesh.xf    = data["xf"][:]
+    mesh.yf    = data["yf"][:]
+    mesh.xc    = data["xc"][:]
+    mesh.yc    = data["yc"][:]
+    mesh.e2f   = data["e2f"]
+    mesh.e2n   = data["e2n"]
+    mesh.e2v   = data["e2n"]
+    mesh.Γ     = data["Gamma"]
+    mesh.Ω     = data["Omega"][:]
+    mesh.n_x   = data["nx"]
+    mesh.n_y   = data["ny"]
+    mesh.phase = data["phase"][:]
+    mesh.bc    = data["bc"][:]
+    mesh.ke    = η[Int64.(mesh.phase)]
     return mesh
 end

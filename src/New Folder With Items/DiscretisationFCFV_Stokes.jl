@@ -1,37 +1,34 @@
 # @turbo was removed
-function ComputeFCFV(mesh, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, τr, Formulation)
+function ComputeFCFV(mesh, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu)
 
     α = zeros(mesh.nel)
     β = zeros(mesh.nel,2)
     Ζ = zeros(mesh.nel,2,2)
 
-    # Loop through elements
-     for e=1:mesh.nel 
-        β[e,1] += mesh.Ω[e]*sex[e] # Source term
-        β[e,2] += mesh.Ω[e]*sey[e] # Source term
-        # Loop through faces
-        for i=1:mesh.nf_el 
+    # Assemble FCFV elements
+    @inbounds for e=1:mesh.nel  
+
+        β[e,1] += mesh.Ω[e]*sex[e]
+        β[e,2] += mesh.Ω[e]*sey[e]
+        
+        for i=1:mesh.nf_el
+            
             nodei = mesh.e2f[e,i]
             bc    = mesh.bc[nodei]
             Γi    = mesh.Γ[e,i]
             ni_x  = mesh.n_x[e,i]
             ni_y  = mesh.n_y[e,i]
-            τi    = τr#*mesh.ke[e]  # Stabilisation parameter for the face
-            if Formulation==:Gradient
-                Ζ[e,1,1] += (bc==1) * Γi*ni_x*VxDir[nodei] # Dirichlet
-                Ζ[e,1,2] += (bc==1) * Γi*ni_x*VyDir[nodei] # Dirichlet
-                Ζ[e,2,1] += (bc==1) * Γi*ni_y*VxDir[nodei] # Dirichlet
-                Ζ[e,2,2] += (bc==1) * Γi*ni_y*VyDir[nodei] # Dirichlet
-            elseif Formulation==:SymmetricGradient
-                Ζ[e,1,1] += (bc==1) * Γi*(ni_x*VxDir[nodei] + ni_x*VxDir[nodei]) # Dirichlet
-                Ζ[e,1,2] += (bc==1) * Γi*(ni_x*VyDir[nodei] + ni_y*VxDir[nodei]) # Dirichlet
-                Ζ[e,2,1] += (bc==1) * Γi*(ni_y*VxDir[nodei] + ni_x*VyDir[nodei]) # Dirichlet
-                Ζ[e,2,2] += (bc==1) * Γi*(ni_y*VyDir[nodei] + ni_y*VyDir[nodei]) # Dirichlet
-            end
-            β[e,1]       += (bc==1) * Γi*τi*VxDir[nodei]   # Dirichlet
-            β[e,2]       += (bc==1) * Γi*τi*VyDir[nodei]   # Dirichlet
-            α[e]         +=           Γi*τi
-            mesh.τ[nodei] = τi
+            τi    = mesh.τ[nodei]  # Stabilisation parameter for the face
+
+            # Assemble
+            Ζ[e,1,1] += (bc==1) * Γi*ni_x*VxDir[nodei] # Dirichlet
+            Ζ[e,1,2] += (bc==1) * Γi*ni_x*VyDir[nodei] # Dirichlet
+            Ζ[e,2,1] += (bc==1) * Γi*ni_y*VxDir[nodei] # Dirichlet
+            Ζ[e,2,2] += (bc==1) * Γi*ni_y*VyDir[nodei] # Dirichlet
+            β[e,1]   += (bc==1) * Γi*τi*VxDir[nodei]   # Dirichlet
+            β[e,2]   += (bc==1) * Γi*τi*VyDir[nodei]   # Dirichlet
+            α[e]     +=           Γi*τi
+            
         end
     end
     return α, β, Ζ
@@ -39,7 +36,7 @@ end
 
 #--------------------------------------------------------------------#
 
-function ComputeElementValues(mesh, Vxh, Vyh, Pe, α, β, Ζ, VxDir, VyDir, Formulation)
+function ComputeElementValues(mesh, Vxh, Vyh, Pe, α, β, Ζ, VxDir, VyDir)
 
     Vxe         = zeros(mesh.nel);
     Vye         = zeros(mesh.nel);
@@ -48,7 +45,7 @@ function ComputeElementValues(mesh, Vxh, Vyh, Pe, α, β, Ζ, VxDir, VyDir, Form
     Txye        = zeros(mesh.nel);
 
     @inbounds for e=1:mesh.nel
-    
+        # Element 
         η       =  mesh.ke[e]
         Ω       =  mesh.Ω[e]
         Vxe[e]  =  β[e,1]/α[e]
@@ -83,7 +80,7 @@ end
 
 #--------------------------------------------------------------------#
 
-function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, gbar, new, Formulation) 
+function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, new) 
 
     # Assemble element matrices and rhs
     Kuui = zeros(2*mesh.nf_el, 2*mesh.nf_el, mesh.nel)
@@ -111,18 +108,6 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
             ȷ     = 0.0 + (bci==-1)*1.0 # indicates interface
             Γi    = mesh.Γ[e,i]
             τi    = mesh.τ[nodei]  
-
-            # if ȷ==1
-            # ηn = mesh.ke[mesh.e2e[e,i]]
-            #     if ηe==1.0
-            #         ηe = 2.0/(1.0 + 1.0/10.0)
-            #         ηe = (1.0 + 10.0)/2
-            #     else
-            #         ηe = (1.0 + 10.0)/2
-            #         # ηe = sqrt(1*10.0)
-            #     end
-            #     # println(ηe)
-            # end
                 
             for j=1:mesh.nf_el
 
@@ -138,17 +123,11 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
                 ninj = ni_x*nj_x + ni_y*nj_y
 
                 # Element matrix 
-                if Formulation==:Gradient
-                    Kuuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ȷ*ni_x*nj_x) - τi*δ) # u1u1
-                    Kuuv[j+nf, i   , e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ȷ*ni_y*nj_x)       ) # u1u2
-                    Kuuv[j   , i+nf, e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ȷ*ni_x*nj_y)       ) # u2u1
-                    Kuuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ȷ*ni_y*nj_y) - τi*δ) # u2u2
-                elseif Formulation==:SymmetricGradient
-                    Kuuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ni_x*nj_x) - τi*δ) # u1u1
-                    Kuuv[j+nf, i   , e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ni_y*nj_x)       ) # u1u2
-                    Kuuv[j   , i+nf, e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ni_x*nj_y)       ) # u2u1
-                    Kuuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ni_y*nj_y) - τi*δ) # u2u2
-                end
+                Kuuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ȷ*ni_x*nj_x) - τi*δ) # u1u1
+                Kuuv[j+nf, i   , e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ȷ*ni_y*nj_x)       ) # u1u2
+                Kuuv[j   , i+nf, e] = on * -Γi * (                 - ηe*Ωe^-1*Γj*(       new*ȷ*ni_x*nj_y)       ) # u2u1
+                Kuuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + new*ȷ*ni_y*nj_y) - τi*δ) # u2u2
+
                 # PC - deactivate terms from new interface implementation
                 Muuv[j   , i   , e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + 0*new*ȷ*ni_x*nj_x) - τi*δ) # u1u1
                 Muuv[j+nf, i+nf, e] = on * -Γi * (α[e]^-1*τi*τj*Γj - ηe*Ωe^-1*Γj*(ninj + 0*new*ȷ*ni_y*nj_y) - τi*δ) # u2u2
@@ -163,15 +142,10 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
             Xi    = 0.0 + (bci==2)*1.0
             tix   = ni_x*σxxNeu[nodei] + ni_y*σxyNeu[nodei]
             tiy   = ni_x*σyxNeu[nodei] + ni_y*σyyNeu[nodei]   
-            if Formulation==:Gradient
-                niΖ_x = ni_x*(Ζ[e,1,1] +  new*ȷ*Ζ[e,1,1]) + ni_y*(Ζ[e,2,1] + new*ȷ*Ζ[e,1,2]) 
-                niΖ_y = ni_x*(Ζ[e,1,2] +  new*ȷ*Ζ[e,2,1]) + ni_y*(Ζ[e,2,2] + new*ȷ*Ζ[e,2,2])
-            elseif Formulation==:SymmetricGradient
-                niΖ_x = ni_x*(Ζ[e,1,1]) + ni_y*(Ζ[e,2,1]) 
-                niΖ_y = ni_x*(Ζ[e,1,2]) + ni_y*(Ζ[e,2,2])     
-            end
-            feix  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,1] + ηe*Ωe^-1*niΖ_x - tix*Xi - (1-new)*ȷ*gbar[e,i,1])
-            feiy  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,2] + ηe*Ωe^-1*niΖ_y - tiy*Xi - (1-new)*ȷ*gbar[e,i,2])
+            niΖ_x = ni_x*(Ζ[e,1,1] +  new*ȷ*Ζ[e,1,1]) + ni_y*(Ζ[e,2,1] + new*ȷ*Ζ[e,1,2]) 
+            niΖ_y = ni_x*(Ζ[e,1,2] +  new*ȷ*Ζ[e,2,1]) + ni_y*(Ζ[e,2,2] + new*ȷ*Ζ[e,2,2])
+            feix  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,1] + ηe*Ωe^-1*niΖ_x - tix*Xi) #- (1-new)*ȷ*gbar[e,i,1]
+            feiy  = (bci!=1) * -Γi * (-α[e]^-1*τi*β[e,2] + ηe*Ωe^-1*niΖ_y - tiy*Xi) #- (1-new)*ȷ*gbar[e,i,2]
             # up block
             Kupv[i   , e] -= (bci!=1) * Γi*ni_x
             Kupv[i+nf, e] -= (bci!=1) * Γi*ni_y

@@ -1,4 +1,4 @@
-function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, gbar, new)
+function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, new)
 
     # reconstruct element value and flux
     nel = mesh.nel
@@ -11,11 +11,11 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
         η         = mesh.ke[e]
         ue[e,:]   = be[e,:]/ae[e]
         Le[e,:,:] = -1.0/vole * ze[e,:,:];
+        τi        = mesh.τ[e]
         for i=1:nfac
             nodei = mesh.e2f[e,i]
             if mesh.bc[nodei] != 1
                 Γi        = mesh.Γ[e,i]
-                τi        = mesh.τ[e]  
                 n         = [mesh.n_x[e,i]; mesh.n_y[e,i]]
                 u         = [Vxh[nodei]; Vyh[nodei]]
                 ue[e,:]   = ue[e,:]   .+ Γi*τi*u'[:]/ae[e]
@@ -58,7 +58,7 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             
             # Global residual 1 (momentum) 
             if new==0    
-                F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi .+ Ji*gbar[e,i,:]' )'
+                F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi  )'  # .+ Ji*gbar[e,i,:]'
             elseif new==1
                 F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi .+ Ji*(n'*η*Le[e,:,:]') )'
             elseif new==2
