@@ -1,39 +1,36 @@
-using FCFV_NME23, Printf, MAT
-import LinearAlgebra: norm, lu, cholesky, Hermitian
-import SparseArrays: spdiagm
-import Statistics: mean
+using FCFV_NME23, Printf
 
-function SetUpProblem!(mesh, P, Vx, Vy, Sxx, Syy, Sxy, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, sx, sy, R, eta, Formulation)
-    etam, etai = eta[1], eta[2]
+function SetUpProblem!(mesh, P, Vx, Vy, Sxx, Syy, Sxy, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, sx, sy, R, η, Formulation)
+    ηm, ηc = η[1], η[2]
     # Evaluate analytic solution for boundary data
     for in=1:mesh.nf
         # Face midpoint coordinates
         x         = mesh.xf[in]
         y         = mesh.yf[in]
         # Dirichlet data
-        vx, vy, p, sxx, syy, sxy = EvalAnalDani( x, y, R, etam, etai )
+        vx, vy, p, σxx, σyy, σxy = EvalAnalDani( x, y, R, ηm, ηc )
         VxDir[in] = vx
         VyDir[in] = vy
         # Neumann data
-        p, dVxdx, dVxdy, dVydx, dVydy = Tractions( x, y, R, etam, etai, 1 )
+        p, ∂vx∂x, ∂vx∂y, ∂vy∂x, ∂vy∂y = Tractions( x, y, R, ηm, ηc, 1 )
         if Formulation==:Gradient 
-            SxxNeu[in] = - p + etam*dVxdx 
-            SyyNeu[in] = - p + etam*dVydy 
-            SxyNeu[in] =       etam*dVxdy
-            SyxNeu[in] =       etam*dVydx
+            SxxNeu[in] = - p + ηm*∂vx∂x 
+            SyyNeu[in] = - p + ηm*∂vy∂y 
+            SxyNeu[in] =       ηm*∂vx∂y
+            SyxNeu[in] =       ηm*∂vy∂x
         elseif Formulation==:SymmetricGradient
             # Stress at faces - Tractions / Symmetric Cauchy stress tensor
-            SxxNeu[in] = - p + 2etam*dVxdx 
-            SyyNeu[in] = - p + 2etam*dVydy 
-            SxyNeu[in] =        etam*(dVxdy+dVydx)
-            SyxNeu[in] =        etam*(dVxdy+dVydx)
+            SxxNeu[in] = - p + 2ηm*∂vx∂x 
+            SyyNeu[in] = - p + 2ηm*∂vy∂y 
+            SxyNeu[in] =        ηm*(∂vx∂y + ∂vy∂x)
+            SyxNeu[in] =        ηm*(∂vx∂y + ∂vy∂x)
         end
     end
     # Evaluate analytic solution on element barycentres
     for iel=1:mesh.nel
         x            = mesh.xc[iel]
         y            = mesh.yc[iel]
-        vx, vy, pre, sxx, syy, sxy = EvalAnalDani( x, y, R, etam, etai )
+        vx, vy, pre, sxx, syy, sxy = EvalAnalDani( x, y, R, ηm, ηc )
         P[iel]       = pre
         Vx[iel]      = vx
         Vy[iel]      = vy
@@ -43,7 +40,7 @@ function SetUpProblem!(mesh, P, Vx, Vy, Sxx, Syy, Sxy, VxDir, VyDir, SxxNeu, Syy
         sx[iel]      = 0.0
         sy[iel]      = 0.0
         out          = mesh.phase[iel] == 1.0
-        mesh.ke[iel] = (out==1) * 1.0*etam + (out!=1) * 1.0*etai         
+        mesh.ke[iel] = (out==1) * 1.0*ηm + (out!=1) * 1.0*ηc         
     end
     return
 end

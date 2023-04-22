@@ -1,6 +1,9 @@
 module FCFV_NME23
 
-using  Revise, Printf, LinearAlgebra, SparseArrays, MAT, CairoMakie, Makie.GeometryBasics
+using  Revise, Printf, MAT, CairoMakie, Makie.GeometryBasics
+import LinearAlgebra: norm, lu, cholesky, Hermitian
+import SparseArrays: spdiagm, sparse, dropzeros
+import Statistics: mean
 
 include("CreateMeshFCFV.jl")
 export FCFV_Mesh, LoadExternalMesh, MakeTriangleMesh
