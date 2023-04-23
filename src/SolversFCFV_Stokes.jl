@@ -18,10 +18,7 @@ function StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, M, solver; Kpu=-Ku
         Pe    .= Pe .- mean(Pe)
     elseif solver==1 || solver==-1
         # Decoupled solve
-        coef  = zeros(mesh.nel*mesh.npel)
-        for i=1:mesh.npel
-            coef[(i-1)*mesh.nel+1:i*mesh.nel] .= penalty.*mesh.ke./mesh.Ω
-        end
+        coef  = penalty.*mesh.ke./mesh.Ω        
         Kppi  = spdiagm(coef)
         Kuusc = Kuu .- Kup*(Kppi*Kpu)
         # PC    = Kuu .- diag(Kuu) .+ diag(M)
