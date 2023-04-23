@@ -1,6 +1,8 @@
 using MAT
 import Triangulate
 
+#--------------------------------------------------------------------#
+
 Base.@kwdef mutable struct FCFV_Mesh
     type   ::Union{String, Missing}          = missing # type of mesh (UnstructTriangles)
     nel    ::Union{Int64,  Missing}          = missing # number of elements
@@ -28,26 +30,20 @@ Base.@kwdef mutable struct FCFV_Mesh
     n_x_f  ::Union{Matrix{Float64}, Missing} = missing # normal 2 face x
     n_y_f  ::Union{Matrix{Float64}, Missing} = missing # normal 2 face y
     τ      ::Union{Vector{Float64}, Missing} = missing # face stabilisation 
-    ke      ::Union{Vector{Float64}, Missing} = missing # viscosity
-    phase  ::Union{Vector{Float64}, Missing} = missing # phase
-end
-
-Base.@kwdef mutable struct FCFV_Fields
-    η      ::Union{Vector{Float64}, Missing} = missing # viscosity
+    ke     ::Union{Vector{Float64}, Missing} = missing # viscosity
     phase  ::Union{Vector{Float64}, Missing} = missing # phase
 end
 
 #--------------------------------------------------------------------#
 
 function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC=[1; 1; 1; 1;], area = ((xmax-xmin)/nx)*((ymax-ymin)/ny), no_pts_incl = Int64(floor(1.0*pi*R/sqrt(((xmax-xmin)/nx)^2+((ymax-ymin)/ny)^2))); nnel=3, npel=1, xp_in=0, yp_in=0, tp_in=0  )
-
+    # Define data required by triangle mesher
+    # This function was adapted from MILAMIN (Dabrowski et al., 2008)
     regions  = Array{Float64}(undef,4,0)
     holes    = Array{Float64}(undef,2,0)
     pts_l    = 1
     pts_u    = 0
-
     if inclusion>=0
-
         # 1. Four corners of the domain
         px     = [xmin; xmax; xmax; xmin]
         py     = [ymin; ymin; ymax; ymax]
@@ -60,7 +56,6 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
         # Region 1
         h1     = [xmin+1e-13; ymin+1e-13; 1.0; 0.0] 
     end
-
     if inclusion==1
         # 2. perimeter of the inclusion
         theta0       = collect(LinRange(0.0,2.0*pi,no_pts_incl+1));
@@ -87,17 +82,15 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
         end
         regions = hcat(h1,h2)
     end
-
+    # Concatenate arrays for better digestion
     p       = hcat(px, py)         # points
     s       = hcat(sx, sy)         # segments
     p       = p'
     s       = s'
-    st      = st[:]
-    
+    st      = st[:] 
     # Triangulation
     mesh                    = FCFV_Mesh()
     mesh.type               = "UnstructTriangles"
-    nvert_el                = 3
     triin                   = Triangulate.TriangulateIO()
     triin.pointlist         = Matrix{Cdouble}(vcat(px',py'))
     triin.segmentlist       = Matrix{Cint}(vcat(sx',sy'))
@@ -105,6 +98,7 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     triin.regionlist        = Matrix{Cdouble}(regions)
     astring                 = @sprintf("%0.10lf", area)
     (trimesh, vorout)       = Triangulate.triangulate("vQDpenq33o2IAa$(astring)", triin)  #
+    # Read resulting mesh
     mesh.nel                = size(trimesh.trianglelist,2)
     e2v                     = trimesh.trianglelist[1:3,:]
     mesh.e2v                = e2v'
@@ -150,11 +144,11 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     nodeB = [3 1 2]
     nodeC = [1 2 3]
     # Compute normal to faces
-    mesh.n_x = zeros(Float64,mesh.nel,mesh.nf_el)
-    mesh.n_y = zeros(Float64,mesh.nel,mesh.nf_el)
-    mesh.Γ   = zeros(Float64,mesh.nel,mesh.nf_el)
-    mesh.e2e = zeros(  Int64,mesh.nel,mesh.nf_el)
-    mesh.ke  =  ones(Float64,mesh.nel)
+    mesh.n_x = zeros(Float64, mesh.nel,mesh.nf_el)
+    mesh.n_y = zeros(Float64, mesh.nel,mesh.nf_el)
+    mesh.Γ   = zeros(Float64, mesh.nel,mesh.nf_el)
+    mesh.e2e = zeros(  Int64, mesh.nel,mesh.nf_el)
+    mesh.ke  =  ones(Float64, mesh.nel)
     # Receive arrays from Triangulate
     vorodeges = zeros(Int64,size(vorout.edgelist))
     vorodeges[1,:] .= vorout.edgelist[1,:]
@@ -163,19 +157,16 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     seglist[1,:]   .= trimesh.edgelist[1,:]
     seglist[2,:]   .= trimesh.edgelist[2,:]
 
-     # Assemble FCFV elements
-     for iel=1:mesh.nel 
-        
+    # Assemble FCFV elements
+    @inbounds for iel=1:mesh.nel 
         for ifac=1:mesh.nf_el
-            
+            # Face 
             nodei  = mesh.e2f[iel,ifac]
-
             # Neighbouring element for this face
             ele1 = vorodeges[1,nodei]
             ele2 = vorodeges[2,nodei]
             iel2 = (iel==ele1) * ele2 + (iel==ele2) * ele1;
             mesh.e2e[iel,ifac] = iel2;
-
             # Vertices
             vert1  = mesh.e2v[iel,nodeA[ifac]]
             vert2  = mesh.e2v[iel,nodeB[ifac]]
@@ -184,77 +175,22 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
             dx     = (mesh.xv[vert1] - mesh.xv[vert2] );
             dy     = (mesh.yv[vert1] - mesh.yv[vert2] );
             Γi     = sqrt(dx^2 + dy^2);
-    
             # Face normal
             n_x  = -dy/Γi
             n_y  =  dx/Γi
-            
             # Third vector
             v_x  = mesh.xf[nodei] - mesh.xc[iel]
             v_y  = mesh.yf[nodei] - mesh.yc[iel]
-            
             # Check whether the normal points outwards
             dot                 = n_x*v_x + n_y*v_y 
             mesh.n_x[iel,ifac]  = ((dot>=0.0)*n_x - (dot<0.0)*n_x)
             mesh.n_y[iel,ifac]  = ((dot>=0.0)*n_y - (dot<0.0)*n_y)
             mesh.Γ[iel,ifac]    = Γi
-
             # Face stabilisation
-            mesh.τ[nodei] = τr#StabParam(τr, Γi, mesh.Ω[iel], mesh.type, mesh.ke[iel]) 
+            mesh.τ[nodei] = τr 
         end
     end
 
-    ############# FOR THE PSEUDO-TRANSIENT PURPOSES ONLY #############
-
-    # # Create face to element numbering
-    # mesh.f2e    = zeros(Int,mesh.nf,2)
-    # mesh.Ω_f    = zeros(Float64,mesh.nf,2)
-    # mesh.n_x_f  = zeros(Float64,mesh.nf,2)
-    # mesh.n_y_f  = zeros(Float64,mesh.nf,2)
-    # mesh.Γ_f    = zeros(Float64,mesh.nf,2)
-
-    # # # Loop through field names and fields: standard
-    # # for fname in fieldnames(typeof(trimesh))
-    # #     println("Field name: ", fname)
-    # #     println("Content   : ", getfield(trimesh, fname))
-    # # end
-
-
-    # # Loop over edges and uses Voronoï diagram to get adjacent cells
-    # for ifac=1:mesh.nf 
-    #     mesh.f2e[ifac,1] = vorodeges[1,ifac]
-    #     mesh.f2e[ifac,2] = vorodeges[2,ifac]
-    #     act1 = vorodeges[1,ifac] > 0
-    #     act2 = vorodeges[2,ifac] > 0
-    #     iel1 = (act1==1) * vorodeges[1,ifac] + (act1==0) * 1
-    #     iel2 = (act2==1) * vorodeges[2,ifac] + (act2==0) * 1
-    #     # Compute face length
-    #     vert1  = seglist[1,ifac]
-    #     vert2  = seglist[2,ifac]
-    #     xf     = 0.5*(mesh.xv[vert1] + mesh.xv[vert2])
-    #     yf     = 0.5*(mesh.yv[vert1] + mesh.yv[vert2])
-    #     dx     = (mesh.xv[vert1] - mesh.xv[vert2] );
-    #     dy     = (mesh.yv[vert1] - mesh.yv[vert2] );
-    #     Γi     = sqrt(dx^2 + dy^2);    
-    #     mesh.Γ_f[ifac,1] =  Γi
-    #     mesh.Γ_f[ifac,2] =  Γi
-    #     # Volumes
-    #     mesh.Ω_f[ifac,1] = (act1==1) * mesh.Ω[iel1]
-    #     mesh.Ω_f[ifac,2] = (act2==2) * mesh.Ω[iel2]
-    #     # Compute face normal
-    #     n_x  = -dy/Γi
-    #     n_y  =  dx/Γi
-    #     # Third vector  (w.r.t. element 1)
-    #     v_x  = xf - mesh.xc[iel1]
-    #     v_y  = yf - mesh.yc[iel1]
-    #     # Check wether the normal points outwards
-    #     dot                 = n_x*v_x + n_y*v_y 
-    #     mesh.n_x_f[ifac,1]  = (act1==1) * ((dot>=0.0)*n_x - (dot<0.0)*n_x)
-    #     mesh.n_y_f[ifac,1]  = (act1==1) * ((dot>=0.0)*n_y - (dot<0.0)*n_y)
-    #     # Take the negative for the second element
-    #     mesh.n_x_f[ifac,2]  = -mesh.n_x_f[ifac,1]
-    #     mesh.n_y_f[ifac,2]  = -mesh.n_y_f[ifac,1]
-    # end
     return mesh
     
     end
@@ -262,17 +198,15 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
 #--------------------------------------------------------------------#
 
 function LoadExternalMesh( res, η )
-    mesh        = FCFV_Mesh( )
-    mesh.type   = "Rubén_Mesh3"
-    if res==:LR data = matread("./meshes/Mesh1Ruben.mat") end
-    if res==:MR data = matread("./meshes/Mesh2Ruben.mat") end
-    if res==:HR data = matread("./meshes/Mesh3Ruben.mat") end
+    mesh       = FCFV_Mesh( )
+    mesh.type  = "InHouseMesher"
+    if res==:LowRes  data = matread("./meshes/MeshAdvancingFrontLowRes.mat" ) end
+    if res==:MedRes  data = matread("./meshes/MeshAdvancingFrontMedRes.mat" ) end
+    if res==:HighRes data = matread("./meshes/MeshAdvancingFrontHighRes.mat") end
     mesh.nel   = data["nel"]
     mesh.nf    = data["nf"]
     mesh.nn_el = data["nn_el"]
     mesh.nf_el = data["nf_el"]
-    mesh.xn    = data["xn"][:]
-    mesh.yn    = data["yn"][:]
     mesh.xv    = data["xn"][:]
     mesh.yv    = data["yn"][:]
     mesh.xf    = data["xf"][:]
@@ -280,7 +214,6 @@ function LoadExternalMesh( res, η )
     mesh.xc    = data["xc"][:]
     mesh.yc    = data["yc"][:]
     mesh.e2f   = data["e2f"]
-    mesh.e2n   = data["e2n"]
     mesh.e2v   = data["e2n"]
     mesh.Γ     = data["Gamma"]
     mesh.Ω     = data["Omega"][:]

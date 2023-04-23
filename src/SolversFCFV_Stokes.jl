@@ -1,13 +1,10 @@
 function StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, M, solver; Kpu=-Kup', Kpp=spdiagm(length(fp), length(fp)), penalty=1e4, tol=1e-10)
 
-    @printf("Start solver %d\n", solver)
+    @printf("Start solver %s for %d DOFs\n", solver, length(fu)+length(fp))
     nVx = Int64(length(fu)/2)
     nVy = length(fu)
-    nV  = length(fu)
-    nP  = length(fp)
-    @printf("ndof = %d\n", nV+nP)
     
-    if solver==0
+    if solver==:CoupledBackslash
         # Coupled solve
         K      = [Kuu Kup; Kpu Kpp]
         f      = [fu; fp]
@@ -16,19 +13,15 @@ function StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, M, solver; Kpu=-Ku
         Vyh   .= xh[nVx+1:nVy]
         Pe    .= xh[nVy+1:end] 
         Pe    .= Pe .- mean(Pe)
-    elseif solver==1 || solver==-1
+    elseif solver==:PowellHestenesCholesky || solver==:PowellHestenesLU
         # Decoupled solve
         coef  = penalty.*mesh.ke./mesh.Ω        
         Kppi  = spdiagm(coef)
         Kuusc = Kuu .- Kup*(Kppi*Kpu)
-        # PC    = Kuu .- diag(Kuu) .+ diag(M)
-        # PC    =  0.5*(M .+ M') 
-        # Kuusc1 = PC .- Kup*(Kppi*Kpu)
-        # PC     =  0.5*(Kuusc1 .+ Kuusc1') 
-        if solver==-1 
+        if solver==:PowellHestenesCholesky 
             t = @elapsed Kf    = cholesky(Hermitian(Kuusc),check = false)
             @printf("Cholesky took = %02.2e s\n", t)
-        else
+        elseif solver==:PowellHestenesLU
             t = @elapsed Kf    = lu(Kuusc)
             @printf("LU took = %02.2e s\n", t)
         end
@@ -39,10 +32,9 @@ function StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, M, solver; Kpu=-Ku
         rp    = zeros(length(fp), 1)
         # Iterations
         for rit=1:20
-            ru   .= fu .- Kuu*u .- Kup*p;
-            rp   .= fp .- Kpu*u;
-            nrmu = norm(ru)
-            nrmp = norm(rp)
+            ru        .= fu .- Kuu*u .- Kup*p
+            rp        .= fp .- Kpu*u
+            nrmu, nrmp = norm(ru), norm(rp)
             @printf("  --> Powell-Hestenes Iteration %02d\n  Momentum res.   = %2.2e\n  Continuity res. = %2.2e\n", rit, nrmu/sqrt(length(ru)), nrmp/sqrt(length(rp)))
             if nrmu/sqrt(length(ru)) < tol && nrmp/sqrt(length(ru)) < tol
                 break

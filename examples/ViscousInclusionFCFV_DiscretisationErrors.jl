@@ -1,4 +1,5 @@
 using FCFV_NME23, Printf
+import LinearAlgebra: norm
 
 #--------------------------------------------------------------------#
 
@@ -51,7 +52,7 @@ function ViscousInclusion()
     xmin, xmax  = -3.0, 3.0    # Domain extent x
     ymin, ymax  = -3.0, 3.0    # Domain extent y
     R           = 1.0          # Inclusion radius
-    η           = [1.0 1e-2]   # Viscosity matrix/inclusion
+    η           = [1.0 1e+2]   # Viscosity matrix/inclusion
     BC          = [2; 1; 1; 1] # South/East/North/West --- 1: Dirichlet / 2: Neumann
 
     # Numerics
@@ -59,7 +60,7 @@ function ViscousInclusion()
     mesh_res    = :MedRes                  # :LowRes / :MedRes / :HighRes     
     solver      = :PowellHestenesCholesky  # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
     Formulation = :SymmetricGradient       # :Gradient / :SymmetricGradient
-    τr          = 2                        # Stabilisation
+    τr          = 2.                        # Stabilisation
     γ           = 1e5                      # Penalty factor for Powell-Hestenes solvers
     ϵ           = 1e-8                     # Tolerance of Powell-Hestenes solvers 
 
@@ -126,7 +127,10 @@ function ViscousInclusion()
 
     # Visualise
     @printf("---> Visualisation:\n")
-    @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=true )
+    @time PlotMakie( mesh, abs.(Pe.-Pa),  xmin, xmax, ymin, ymax; cmap=:turbo )
+    # @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3 )
+    @show maximum(abs.(Pe.-Pa))
+    @show norm((Pe.-Pa))/mesh.nel
 
 end
 

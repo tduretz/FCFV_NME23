@@ -43,7 +43,7 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
         F_eq2[e,2]   = -sey[e]*vole
         F_eq3[e]     = 0.0
         for i=1:nfac
-            nodei = mesh.e2f[e,i]
+            nodei  = mesh.e2f[e,i]
             dAi    = mesh.Γ[e,i]
             taui   = mesh.τ[e]  
             n      = [mesh.n_x[e,i]; mesh.n_y[e,i]]
@@ -53,7 +53,11 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             tix    = n[1]*SxxNeu[nodei] + n[2]*SxyNeu[nodei]
             tiy    = n[1]*SyxNeu[nodei] + n[2]*SyyNeu[nodei] 
             ti     = [tix; tiy]
-            u      = [Vxh[nodei]; Vyh[nodei]]
+            if mesh.bc[nodei] == 1
+                u = [VxDir[nodei]; VyDir[nodei]]
+            else
+                u = [Vxh[nodei]; Vyh[nodei]]
+            end
             # Global residual 1 (momentum) 
             if Formulation == :Gradient
                 F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi .+ Ji*(n'*η*Le[e,:,:]') )'
@@ -61,28 +65,15 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
                 F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi  )'
             end
             F_eq2[e,:]       = F_eq2[e,:] + dAi*taui*ue[e,:]
-            
             # Global residual 2 (continuity)
-            if mesh.bc[nodei] != 1
-                F_glob2[e]   = F_glob2[e] .+ dAi * u'*n
-                if Formulation == :Gradient
-                    F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * n * u'
-                elseif Formulation == :SymmetricGradient
-                    F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * (n*u' .+ u*n')
-                end
-                F_eq2[e,:]   = F_eq2[e,:] .- dAi*taui*u[:]
-                F_eq3[e,:]   = F_eq3[e,:] .+ dAi*u'*n
-            else
-                udir = [VxDir[nodei]; VyDir[nodei]]
-                F_glob2[e]   = F_glob2[e] .+ dAi * udir'*n
-                if Formulation == :Gradient
-                    F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * n * udir'
-                elseif Formulation == :SymmetricGradient
-                    F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * (n*udir' .+ udir.*n')
-                end
-                F_eq2[e,:]   = F_eq2[e,:] .- dAi*taui*udir[:]
-                F_eq3[e,:]   = F_eq3[e,:] .+ dAi*udir'*n
-            end 
+            F_glob2[e]   = F_glob2[e] .+ dAi * u'*n
+            if Formulation == :Gradient
+                F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * n * u'
+            elseif Formulation == :SymmetricGradient
+                F_eq1[e,:,:] = F_eq1[e,:,:] .+ dAi * (n*u' .+ u*n')
+            end
+            F_eq2[e,:] = F_eq2[e,:] .- dAi*taui*u[:]
+            F_eq3[e,:] = F_eq3[e,:] .+ dAi*u'*n
         end
     end
 
@@ -101,13 +92,11 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             end
         end
     end
-
-    @printf("Residual of local equation 1 (eq 34a)     : %2.2e\n", norm(F_eq1)/sqrt(length(F_eq1)))
-    @printf("Residual of local equation 2 (eq 34b)     : %2.2e\n", norm(F_eq2)/sqrt(length(F_eq2)))
-    @printf("Residual of local equation 3 (eq 34c)     : %2.2e\n", norm(F_eq3)/sqrt(length(F_eq3)))
-    @printf("Residual of global equation 1 - x (eq 37a): %2.2e\n", norm(F_nodes_x)/sqrt(length(F_nodes_x)))
-    @printf("Residual of global equation 1 - y (eq 37a): %2.2e\n", norm(F_nodes_y)/sqrt(length(F_nodes_y)))
-    @printf("Residual of global equation 2 - p (eq 37b): %2.2e\n", norm(F_glob2)/sqrt(length(F_glob2)))
-
+    @printf("Residual of local  equation 34a: %2.2e\n", norm(F_eq1)/sqrt(length(F_eq1)))
+    @printf("Residual of local  equation 34b: %2.2e\n", norm(F_eq2)/sqrt(length(F_eq2)))
+    @printf("Residual of local  equation 34c: %2.2e\n", norm(F_eq3)/sqrt(length(F_eq3)))
+    @printf("Residual of global equation 19a: %2.2e\n", norm(F_nodes_x)/sqrt(length(F_nodes_x)))
+    @printf("Residual of global equation 19a: %2.2e\n", norm(F_nodes_y)/sqrt(length(F_nodes_y)))
+    @printf("Residual of global equation 19b: %2.2e\n", norm(F_glob2)/sqrt(length(F_glob2)))
     return
 end
