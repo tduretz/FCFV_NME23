@@ -2,6 +2,10 @@ using FCFV_NME23, Printf
 
 #--------------------------------------------------------------------#
 
+@doc """
+Generates model configuration (viscosity field) and set up boundary values.
+""" SetUpProblem!
+
 function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, sx, sy, R, η, Formulation)
     ηm, ηc = η[1], η[2]
     # Evaluate analytic solution for boundary data
@@ -126,7 +130,7 @@ function ViscousInclusion()
 
     # Visualise
     @printf("---> Visualisation:\n")
-    @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=true )
+    @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=false )
 
 end
 

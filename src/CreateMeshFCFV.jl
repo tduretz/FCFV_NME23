@@ -3,6 +3,10 @@ import Triangulate
 
 #--------------------------------------------------------------------#
 
+@doc """
+Data structure that contains information about the mesh (number of elements, geometry, connectivity...).
+""" FCFV_Mesh
+
 Base.@kwdef mutable struct FCFV_Mesh
     type   ::Union{String, Missing}          = missing # type of mesh (UnstructTriangles)
     nel    ::Union{Int64,  Missing}          = missing # number of elements
@@ -35,6 +39,10 @@ Base.@kwdef mutable struct FCFV_Mesh
 end
 
 #--------------------------------------------------------------------#
+
+@doc """
+Generate triangular mesh and populate FCFV_Mesh() structure.
+""" MakeTriangleMesh
 
 function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC=[1; 1; 1; 1;], area = ((xmax-xmin)/nx)*((ymax-ymin)/ny), no_pts_incl = Int64(floor(1.0*pi*R/sqrt(((xmax-xmin)/nx)^2+((ymax-ymin)/ny)^2))); nnel=3, npel=1, xp_in=0, yp_in=0, tp_in=0  )
     # Define data required by triangle mesher
@@ -196,6 +204,10 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     end
 
 #--------------------------------------------------------------------#
+
+@doc """
+Reads in externally generated mesh and populate FCFV_Mesh() structure.
+""" LoadExternalMesh
 
 function LoadExternalMesh( res, η )
     mesh       = FCFV_Mesh( )

@@ -1,5 +1,9 @@
 A = 1.0
 
+@doc """
+Computes FCFV dicretisation elements `α`, `β` and `Ζ`. The discretisation is based on first order scheme (see Sevilla et al., 2018).
+""" ComputeFCFV
+
 function ComputeFCFV(mesh, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, τr, Formulation)
 
     α = zeros(mesh.nel)
@@ -40,11 +44,15 @@ end
 
 #--------------------------------------------------------------------#
 
+@doc """
+Computes element values of velocity vector and deviatoric stress tensor components. 
+""" ComputeElementValues
+
 function ComputeElementValues(mesh, Vxh, Vyh, Pe, α, β, Ζ, VxDir, VyDir, Formulation)
 
     Vxe         = zeros(mesh.nel)
     Vye         = zeros(mesh.nel)
-    Txxe        = zeros(mesh.nel)
+    τxxe        = zeros(mesh.nel)
     τyye        = zeros(mesh.nel)
     τxye        = zeros(mesh.nel) 
 
@@ -54,7 +62,7 @@ function ComputeElementValues(mesh, Vxh, Vyh, Pe, α, β, Ζ, VxDir, VyDir, Form
         Ω       =  mesh.Ω[e]
         Vxe[e]  =  β[e,1]/α[e]
         Vye[e]  =  β[e,2]/α[e]
-        Txxe[e] =  η/Ω*Ζ[e,1,1]
+        τxxe[e] =  η/Ω*Ζ[e,1,1]
         τyye[e] =  η/Ω*Ζ[e,2,2] 
         τxye[e] =  η/Ω*0.5*(Ζ[e,1,2] + Ζ[e,2,1])
         
@@ -71,18 +79,22 @@ function ComputeElementValues(mesh, Vxh, Vyh, Pe, α, β, Ζ, VxDir, VyDir, Form
             # Assemble
             Vxe[e]  += (bc!=1) *  Γi*τi*Vxh[nodei]/α[e]
             Vye[e]  += (bc!=1) *  Γi*τi*Vyh[nodei]/α[e]
-            Txxe[e] += (bc!=1) *  η/Ω*Γi*ni_x*Vxh[nodei]
+            τxxe[e] += (bc!=1) *  η/Ω*Γi*ni_x*Vxh[nodei]
             τyye[e] += (bc!=1) *  η/Ω*Γi*ni_y*Vyh[nodei]
             τxye[e] += (bc!=1) *  η*0.5*( 1.0/Ω*Γi*( ni_x*Vyh[nodei] + ni_y*Vxh[nodei] ) )
          end
-        Txxe[e] *= 2.0
+        τxxe[e] *= 2.0
         τyye[e] *= 2.0
         τxye[e] *= 2.0
     end
-    return Vxe, Vye, Txxe, τyye, τxye
+    return Vxe, Vye, τxxe, τyye, τxye
 end
 
 #--------------------------------------------------------------------#
+
+@doc """
+Assembles linear system of equations 
+""" ElementAssemblyLoop
 
 function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation) 
 
@@ -187,6 +199,10 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
 end
 
 #--------------------------------------------------------------------#
+
+@doc """
+Generate sparse matrix blocks from triplets given in COO format.
+""" Sparsify
 
 function Sparsify( Kuui, Kuuj, Kuuv, Muuv, Kupi, Kupj, Kupv, fuv, nf, nel)
 

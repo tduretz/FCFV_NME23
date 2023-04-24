@@ -1,3 +1,8 @@
+@doc """
+Solve discretised Stokes equation using either a coupled sparse-direct factorisation or Powell-Hestenes iteration.
+Either LU or Cholesky factorisation (for symmetric positive definite case) can be within Powell-Hestenes iterations. 
+""" StokesSolvers!
+
 function StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, M, solver; Kpu=-Kup', Kpp=spdiagm(length(fp), length(fp)), penalty=1e4, tol=1e-10)
 
     @printf("Start solver %s for %d DOFs\n", solver, length(fu)+length(fp))

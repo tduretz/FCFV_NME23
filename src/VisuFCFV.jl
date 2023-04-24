@@ -1,8 +1,10 @@
 using CairoMakie
 using Makie.GeometryBasics
 
-``` Create patch plots for either Quadrangles or Triangles
-```
+@doc """
+Create patch plots, visualises constant value par element.
+""" SetUpProblem!
+
 @views function PlotMakie(mesh, v, xmin, xmax, ymin, ymax; cmap = :viridis, min_v = minimum(v), max_v = maximum(v), writefig=false)
     # min_v, max_v = minimum(v), maximum(v)
     f = Figure()

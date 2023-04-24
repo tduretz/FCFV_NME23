@@ -1,3 +1,7 @@
+@doc """
+Computes residual of local and global equations discretised with FCFV.
+""" ComputeResidualsFCFV_Stokes_o1
+
 function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNeu, Formulation)
 
     # reconstruct element value and flux
@@ -92,9 +96,9 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             end
         end
     end
-    @printf("Residual of local  equation 34a: %2.2e\n", norm(F_eq1)/sqrt(length(F_eq1)))
-    @printf("Residual of local  equation 34b: %2.2e\n", norm(F_eq2)/sqrt(length(F_eq2)))
-    @printf("Residual of local  equation 34c: %2.2e\n", norm(F_eq3)/sqrt(length(F_eq3)))
+    @printf("Residual of local  equation 20a: %2.2e\n", norm(F_eq1)/sqrt(length(F_eq1)))
+    @printf("Residual of local  equation 20b: %2.2e\n", norm(F_eq2)/sqrt(length(F_eq2)))
+    @printf("Residual of local  equation 20c: %2.2e\n", norm(F_eq3)/sqrt(length(F_eq3)))
     @printf("Residual of global equation 19a: %2.2e\n", norm(F_nodes_x)/sqrt(length(F_nodes_x)))
     @printf("Residual of global equation 19a: %2.2e\n", norm(F_nodes_y)/sqrt(length(F_nodes_y)))
     @printf("Residual of global equation 19b: %2.2e\n", norm(F_glob2)/sqrt(length(F_glob2)))

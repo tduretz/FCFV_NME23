@@ -1,3 +1,11 @@
+@doc """
+Evaluates analytical solution.
+ANALYTICAL SOLUTION - PRESSURE AND VELOCITY AROUND A CIRCULAR INCLUSION:
+
+BASED ON DANI SCHMID'S 2002 CYL_P_MATRIX.M
+FAR FIELD FLOW - VISCOSITIES - GEOMETRY
+""" EvalAnalDani
+
 function EvalAnalDani( x, y, rc, ηm, ηc )
     # ---------------------------------------------------------------------------
     # ANALYTICAL SOLUTION - PRESSURE AND VELOCITY AROUND A CIRCULAR INCLUSION:
@@ -67,6 +75,14 @@ function EvalAnalDani( x, y, rc, ηm, ηc )
 end
 
 #--------------------------------------------------------------------#
+
+@doc """
+Evaluates analytical solution.
+ANALYTICAL SOLUTION - PRESSURE AND VELOCITY AROUND A CIRCULAR INCLUSION:
+
+BASED ON DANI SCHMID'S 2002 CYL_P_MATRIX.M
+FAR FIELD FLOW - VISCOSITIES - GEOMETRY
+""" Tractions
 
 function Tractions( x, y, rc, ηm, ηc, phase )
 

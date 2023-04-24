@@ -3,6 +3,10 @@ import LinearAlgebra: norm
 
 #--------------------------------------------------------------------#
 
+@doc """
+Generates model configuration (viscosity field) and set up boundary values.
+""" SetUpProblem!
+
 function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, sx, sy, R, η, Formulation)
     ηm, ηc = η[1], η[2]
     # Evaluate analytic solution for boundary data
