@@ -1,9 +1,9 @@
 # FCFV_NME23: Face-Centered Finite Volume (FCFV)
 
 This repository contains a [*Julia*](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwjfmo-y1sD-AhXSIMUKHejOAvsQFnoECAoQAQ&url=https%3A%2F%2Fjulialang.org%2F&usg=AOvVaw0QW6rLOeHgYMIkzdr55cuX)  package and scripts that can be used to reproduce results presented in the publication:
-**A face-centred finite volume method for high-contrast Stokes
+[**A face-centred finite volume method for high-contrast Stokes
 interface problems**
-by R. Sevilla and T. Duretz to be published in *International Journal for Numerical Methods in Engineering*.
+by R. Sevilla and T. Duretz published in *International Journal for Numerical Methods in Engineering*](https://onlinelibrary.wiley.com/doi/10.1002/nme.7294).
 
 # Installation
 1. Clone/Download the repository
