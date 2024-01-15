@@ -61,21 +61,19 @@ function SolKz(n)
 
     # Numerics
     Mesher      = :Delaunay                # :Delaunay / :AdvancingFront (load external mesh)
-    Mesher      = :AdvancingFront                # :Delaunay / :AdvancingFront (load external mesh)
-    mesh_res    = :MedRes                  # :LowRes / :MedRes / :HighRes     
+    # Mesher      = :AdvancingFront          # :Delaunay / :AdvancingFront (load external mesh)
     solver      = :PowellHestenesCholesky  # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
     # solver      = :CoupledBackslash
     # solver      = :PowellHestenesLU      # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
     Formulation = :SymmetricGradient       # :Gradient / :SymmetricGradient
     # Formulation = :Gradient              # :Gradient / :SymmetricGradient
-    τr          = 10                      # Stabilisation
+    τr          = 10                       # Stabilisation
     γ           = 5e3                      # Penalty factor for Powell-Hestenes solvers
     ϵ           = 1e-8                     # Tolerance of Powell-Hestenes solvers 
 
     # Generate mesh 
-    nx, ny = n*30, n*30  # initial point density in x and y for triangulation 
+    nx, ny = n*100, n*100  # initial point density in x and y for triangulation 
     if Mesher==:Delaunay       mesh = MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, 0, R, BC, ((xmax-xmin)/nx)*((ymax-ymin)/ny), 200 ) end
-    # if Mesher==:AdvancingFront mesh = LoadExternalMesh( mesh_res, η) end
     if Mesher==:AdvancingFront mesh = LoadExternalMesh2( nx, ny, xmin, xmax, ymin, ymax, τr, 0, R, BC, ((xmax-xmin)/nx)*((ymax-ymin)/ny), 200 ) end
 
     @printf("Mesh informations:\n")

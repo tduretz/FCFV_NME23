@@ -254,7 +254,7 @@ end
 #--------------------------------------------------------------------#
 
 @doc """
-Generate triangular mesh and pReads in externally generated mesh and populate FCFV_Mesh() structure.
+Generate triangular mesh and reads in externally generated mesh and populate FCFV_Mesh() structure.
 """ LoadExternalMesh2
 
 function LoadExternalMesh2( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC=[1; 1; 1; 1;], area = ((xmax-xmin)/nx)*((ymax-ymin)/ny), no_pts_incl = Int64(floor(1.0*pi*R/sqrt(((xmax-xmin)/nx)^2+((ymax-ymin)/ny)^2))); nnel=3, npel=1, xp_in=0, yp_in=0, tp_in=0  )
