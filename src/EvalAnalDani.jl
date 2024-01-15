@@ -6,7 +6,7 @@ BASED ON DANI SCHMID'S 2002 CYL_P_MATRIX.M
 FAR FIELD FLOW - VISCOSITIES - GEOMETRY
 """ EvalAnalDani
 
-function EvalAnalDani( x, y, rc, ηm, ηc )
+function EvalAnalDani( x, y, rc, ηm, ηc; er=-1., gr=0. )
     # ---------------------------------------------------------------------------
     # ANALYTICAL SOLUTION - PRESSURE AND VELOCITY AROUND A CIRCULAR INCLUSION:
     #
@@ -16,8 +16,6 @@ function EvalAnalDani( x, y, rc, ηm, ηc )
     # ---------------------------------------------------------------------------
     
     # Input:
-    gr  = 0                        # Simple shear: gr=1, er=0
-    er  = -1                       # Strain rate
     A   = ηm*(ηc-ηm)/(ηc+ηm)
     i   = 1im
 
@@ -84,11 +82,9 @@ BASED ON DANI SCHMID'S 2002 CYL_P_MATRIX.M
 FAR FIELD FLOW - VISCOSITIES - GEOMETRY
 """ Tractions
 
-function Tractions( x, y, rc, ηm, ηc, phase )
+function Tractions( x, y, rc, ηm, ηc, phase; er=-1., gr=0. )
 
     # Input:
-    gr  = 0;                        # Simple shear: gr=1, er=0
-    er  = -1;                       # Strain rate
     A   =   ηm*(ηc-ηm)/(ηc+ηm);
     i   =   1im;
 

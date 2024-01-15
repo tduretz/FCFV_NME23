@@ -1,5 +1,4 @@
-using FCFV_NME23, Printf
-import LinearAlgebra: norm
+using FCFV_NME23, Printf, LinearAlgebra
 
 #--------------------------------------------------------------------#
 
@@ -61,21 +60,21 @@ end
 
 function ViscousInclusion()
 
-    @printf("Viscous inclusion test using first order FCFV discretisation on triangles")
+    @printf("Viscous inclusion test using first order FCFV discretisation on triangles\n")
 
     # Physics
     xmin, xmax  = -3.0, 3.0    # Domain extent x
     ymin, ymax  = -3.0, 3.0    # Domain extent y
     R           = 1.0          # Inclusion radius
-    η           = [1.0 1e+2]   # Viscosity matrix/inclusion
+    η           = [1.0 1e-2]   # Viscosity matrix/inclusion
     BC          = [2; 1; 1; 1] # South/East/North/West --- 1: Dirichlet / 2: Neumann
 
     # Numerics
     Mesher      = :Delaunay                # :Delaunay / :AdvancingFront (load external mesh)
     mesh_res    = :MedRes                  # :LowRes / :MedRes / :HighRes     
-    solver      = :PowellHestenesCholesky  # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
+    solver      = :PowellHestenesLU        # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
     Formulation = :SymmetricGradient       # :Gradient / :SymmetricGradient
-    τr          = 2.                        # Stabilisation
+    τr          = 2                        # Stabilisation
     γ           = 1e5                      # Penalty factor for Powell-Hestenes solvers
     ϵ           = 1e-8                     # Tolerance of Powell-Hestenes solvers 
 
@@ -123,15 +122,15 @@ function ViscousInclusion()
     # Set up Stokes problem
     @printf("---> Model configuration :\n")
     @time SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, sex, sey, R, η, Formulation, ηip, N, nnel, nip)
-      
+
     # Compute mesh properties for FCFV
     @printf("---> Compute FCFV vectors:\n")
-    mesh.τe = τr.*ones(mesh.nf)  # Stabilisation per element
+    mesh.τe .= τr.*ones(mesh.nel)  # Stabilisation per element
     @time ae, be, ze = ComputeFCFV(mesh, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, τr, Formulation)
     
     # Assemble element matrices and RHS
-    @printf("---> Compute element matrices:\n")                      
-    @time Kuu, Muu, Kup, fu, fp, tsparse = ElementAssemblyLoop(mesh, ae, be, ze, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
+    @printf("---> Compute element matrices:\n")  
+    @time Kuu, Muu, Kup, fu, fp, tsparse = ElementAssemblyLoopToy(mesh, ae, be, ze, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
     println("---> Sparsification: ", tsparse)
 
     # # Solve for hybrid variables
@@ -149,10 +148,9 @@ function ViscousInclusion()
 
     # Visualise
     @printf("---> Visualisation:\n")
-    @time PlotMakie( mesh, abs.(Pe.-Pa),  xmin, xmax, ymin, ymax; cmap=:turbo )
-    # @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3 )
-    @show maximum(abs.(Pe.-Pa))
-    @show norm((Pe.-Pa))/mesh.nel
+    # @time PlotMakie( mesh, Vxe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=false )
+    @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=false )
+    # @time PlotMakie( mesh, mesh.Ω ./ mesh.λ,  xmin, xmax, ymin, ymax; cmap=:turbo, writefig=false )
 
 end
 

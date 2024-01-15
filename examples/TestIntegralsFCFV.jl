@@ -1,5 +1,4 @@
-using FCFV_NME23, Printf
-import LinearAlgebra: norm
+using FCFV_NME23, Printf, CairoMakie, LinearAlgebra
 
 #--------------------------------------------------------------------#
 
@@ -7,7 +6,7 @@ import LinearAlgebra: norm
 Generates model configuration (viscosity field) and set up boundary values.
 """ SetUpProblem!
 
-function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, sx, sy, R, η, Formulation, ηip, N, nnel, nip)
+function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, sx, sy, R, η, Formulation)
     ηm, ηc = η[1], η[2]
     # Evaluate analytic solution for boundary data
     for in=1:mesh.nf
@@ -32,27 +31,16 @@ function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σ
         end
     end
     # Evaluate analytic solution on element barycentres
-    Ni      = zeros(nnel)
-    xi      = zeros(1,2)
-    for e=1:mesh.nel
-        x                               = mesh.xc[e]
-        y                               = mesh.yc[e]
+    for iel=1:mesh.nel
+        x                               = mesh.xc[iel]
+        y                               = mesh.yc[iel]
         vx, vy, pre, σxx, σyy, σxy      = EvalAnalDani( x, y, R, ηm, ηc )
-        Pa[e]                         = pre
-        Vxa[e], Vya[e]              = vx, vy
-        σxxa[e], σyya[e], σxya[e] = σxx, σyy, σxy
-        sx[e],  sy[e]               = 0.0, 0.0
-        out                             = mesh.phase[e] == 1.0
-        mesh.ke[e]                    = (out==1) * 1.0*ηm + (out!=1) * 1.0*ηc   
-        # Numbering and element nodes
-        nodes    = mesh.e2v[e,:]
-        x        = [mesh.xv[nodes] mesh.yv[nodes]]
-        for ip=1:nip
-            # Global coordinate of integration points
-            Ni .= N[ip,:,:]
-            xi .= Ni'*x
-            ηip[e,ip] = (out==1) * 1.0*ηm + (out!=1) * 1.0*ηc 
-        end      
+        Pa[iel]                         = pre
+        Vxa[iel], Vya[iel]              = vx, vy
+        σxxa[iel], σyya[iel], σxya[iel] = σxx, σyy, σxy
+        sx[iel],  sy[iel]               = 0.0, 0.0
+        out                             = mesh.phase[iel] == 1.0
+        mesh.ke[iel]                    = (out==1) * 1.0*ηm + (out!=1) * 1.0*ηc         
     end
     return
 end
@@ -67,7 +55,7 @@ function ViscousInclusion()
     xmin, xmax  = -3.0, 3.0    # Domain extent x
     ymin, ymax  = -3.0, 3.0    # Domain extent y
     R           = 1.0          # Inclusion radius
-    η           = [1.0 1e+2]   # Viscosity matrix/inclusion
+    η           = [1.0 1e-2]   # Viscosity matrix/inclusion
     BC          = [2; 1; 1; 1] # South/East/North/West --- 1: Dirichlet / 2: Neumann
 
     # Numerics
@@ -75,7 +63,7 @@ function ViscousInclusion()
     mesh_res    = :MedRes                  # :LowRes / :MedRes / :HighRes     
     solver      = :PowellHestenesCholesky  # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
     Formulation = :SymmetricGradient       # :Gradient / :SymmetricGradient
-    τr          = 2.                        # Stabilisation
+    τr          = 2                        # Stabilisation
     γ           = 1e5                      # Penalty factor for Powell-Hestenes solvers
     ϵ           = 1e-8                     # Tolerance of Powell-Hestenes solvers 
 
@@ -113,46 +101,79 @@ function ViscousInclusion()
     Vxa    = zeros(mesh.nel)  # Element horizontal velocity
     Vya    = zeros(mesh.nel)  # Element vertical velocity
 
-    # Viscosity field on integration points
+    # Set up Stokes problem
+    @printf("---> Model configuration :\n")
+    @time SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, sex, sey, R, η, Formulation)
+
+
     nip  = 6
     nnel = 3
-    ηip  = zeros(mesh.nel, nip) 
     ipx, ipw = IntegrationTriangle( nip )
     N, dNdX = ShapeFunctions(ipx, nip, nnel)
 
-    # Set up Stokes problem
-    @printf("---> Model configuration :\n")
-    @time SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, sex, sey, R, η, Formulation, ηip, N, nnel, nip)
-      
-    # Compute mesh properties for FCFV
-    @printf("---> Compute FCFV vectors:\n")
-    mesh.τe = τr.*ones(mesh.nf)  # Stabilisation per element
-    @time ae, be, ze = ComputeFCFV(mesh, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, τr, Formulation)
+
+
+    λ       = zeros(mesh.nel)
+    J       = zeros(2,2)
+    dNdXi   = zeros(nnel, 2)
+    Ni      = zeros(nnel)
+    xi      = zeros(1,2)
+
+    for e = 1:mesh.nel
+        nodes   = mesh.e2v[e,:]
+        x       = [mesh.xv[nodes] mesh.yv[nodes]]  
+        for ip=1:nip
+            # Global coordinate of integration points
+            Ni .= N[ip,:,:]
+            xi .= Ni'*x
+            # Evaluate viscosity on integration points
+            ηip = 1.0
+            # Jacobian
+            dNdXi  .= dNdX[ip,:,:]
+            mul!(J, x', dNdXi)
+            # Interpolation weight
+            detJ           = J[1,1]*J[2,2] - J[1,2]*J[2,1]
+            w              = ipw[ip] * detJ
+            # Integration
+            λ[e] += w * ηip 
+        end
+    end
+
+    @show minimum(λ)
+    @show maximum(λ)
+
+    # f = Figure(resolution = (800, 800), fontsize=23)
+    # ax1 = Axis(f[1, 1], xlabel = "x", ylabel = "y")
+    # scatter!(ax1, x[:,1], x[:,2])
+    # scatter!(ax1, xiv[:,1], xiv[:,2])
+    # display(f)
+
+    # # Compute mesh properties for FCFV
+    # @printf("---> Compute FCFV vectors:\n")
+    # mesh.τ = τr.*ones(mesh.nf)  # Stabilisation per element
+    # @time ae, be, ze = ComputeFCFV(mesh, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, τr, Formulation)
     
-    # Assemble element matrices and RHS
-    @printf("---> Compute element matrices:\n")                      
-    @time Kuu, Muu, Kup, fu, fp, tsparse = ElementAssemblyLoop(mesh, ae, be, ze, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
-    println("---> Sparsification: ", tsparse)
+    # # Assemble element matrices and RHS
+    # @printf("---> Compute element matrices:\n")                      
+    # @time Kuu, Muu, Kup, fu, fp, tsparse = ElementAssemblyLoop(mesh, ae, be, ze, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
+    # println("---> Sparsification: ", tsparse)
 
-    # # Solve for hybrid variables
-    @printf("---> Linear solve:\n")
-    Pe .= Pa
-    @time StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, Muu, solver; tol=ϵ, penalty=γ)
+    # # # Solve for hybrid variables
+    # @printf("---> Linear solve:\n")
+    # Pe .= Pa
+    # @time StokesSolvers!(Vxh, Vyh, Pe, mesh, Kuu, Kup, fu, fp, Muu, solver; tol=ϵ, penalty=γ)
 
-    # Reconstruct element values
-    @printf("---> Compute element values:\n")
-    @time Vxe, Vye, Txxe, Tyye, Txye = ComputeElementValues(mesh, Vxh, Vyh, Pe, ae, be, ze, VxDir, VyDir, Formulation)
+    # # Reconstruct element values
+    # @printf("---> Compute element values:\n")
+    # @time Vxe, Vye, Txxe, Tyye, Txye = ComputeElementValues(mesh, Vxh, Vyh, Pe, ae, be, ze, VxDir, VyDir, Formulation)
     
-    # Evaluate residuals
-    @printf("---> Evaluate residuals:\n")
-    ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
+    # # Evaluate residuals
+    # @printf("---> Evaluate residuals:\n")
+    # ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
 
-    # Visualise
-    @printf("---> Visualisation:\n")
-    @time PlotMakie( mesh, abs.(Pe.-Pa),  xmin, xmax, ymin, ymax; cmap=:turbo )
-    # @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3 )
-    @show maximum(abs.(Pe.-Pa))
-    @show norm((Pe.-Pa))/mesh.nel
+    # # Visualise
+    # @printf("---> Visualisation:\n")
+    # @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=false )
 
 end
 

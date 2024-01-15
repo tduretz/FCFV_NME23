@@ -10,7 +10,7 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
     Le  = zeros(nel,2,2)
 
     for e=1:nel    
-        nfac     = mesh.nf_el
+        nfac      = mesh.nf_el
         vole      = mesh.Ω[e]
         ue[e,:]   = be[e,:]/ae[e]
         Le[e,:,:] = -1.0/vole * ze[e,:,:]
@@ -37,11 +37,13 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
     F_eq1    = zeros(nel,2,2);
     F_eq2    = zeros(nel,2);
     F_eq3    = zeros(nel,1);
+    D        = zeros(2,2)
 
     for e=1:nel
         nfac         = mesh.nf_el
         vole         = mesh.Ω[e]
         η            = mesh.ke[e]
+        D           .= [η  η/mesh.δ[e]; η/mesh.δ[e] η]
         F_eq1[e,:,:] = vole*Le[e,:,:]
         F_eq2[e,1]   = -sex[e]*vole
         F_eq2[e,2]   = -sey[e]*vole
@@ -64,9 +66,9 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
             end
             # Global residual 1 (momentum) 
             if Formulation == :Gradient
-                F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi .+ Ji*(n'*η*Le[e,:,:]') )'
+                F_glob1[e,i,:] .+=  dAi .* ( (n'*(D.*Le[e,:,:])) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi .+ Ji*(n'*(D.*Le[e,:,:])') )'
             elseif Formulation == :SymmetricGradient
-                F_glob1[e,i,:] .+=  dAi .* ( (n'*η*Le[e,:,:]) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi  )'
+                F_glob1[e,i,:] .+=  dAi .* ( (n'*(D.*Le[e,:,:])) .+ Pe[e]*n' .+ taui*ue[e,:]' .- taui*u' .+ ti'*Xi  )'
             end
             F_eq2[e,:]       = F_eq2[e,:] + dAi*taui*ue[e,:]
             # Global residual 2 (continuity)
