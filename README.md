@@ -77,3 +77,19 @@ The inclusion has a viscosity hundred times smaller than the matrix:
     ϵ           = 1e-8                     # Tolerance of Powell-Hestenes solvers 
 ```
 ![](./images/WeakInclusionSymmetricGradientDelaunay.png)
+
+# SolKz: large and smooth viscosity test
+
+The example code can be used to simulate incompressible Stokes flow with a smooth and large viscosity variation. The model configuration ([SolKzFCFV.jl](./examples/SolKzFCFV.jl)) accounts for buoyancy driven flow in presence of a large vertical variation of viscosity ([Zhong, 1996](https://academic.oup.com/gji/article/124/1/18/567498)).
+
+The numerical solution for a pressure using mesh generated with the advancing front method:
+
+![](./images/SolKz_PressureField_LowRes.png)
+
+The numerical solution for a pressure using mesh generated with the Delaunay triangulation at various resolutions:
+
+![](./images/SolKz_PressureField_LowRes_Delaunay.png)
+
+![](./images/SolKz_PressureField_MedRes_Delaunay.png)
+
+![](./images/SolKz_PressureField_HighRes_Delaunay.png)

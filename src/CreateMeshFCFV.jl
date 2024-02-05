@@ -34,8 +34,13 @@ Base.@kwdef mutable struct FCFV_Mesh
     n_x_f  ::Union{Matrix{Float64}, Missing} = missing # normal 2 face x
     n_y_f  ::Union{Matrix{Float64}, Missing} = missing # normal 2 face y
     τ      ::Union{Vector{Float64}, Missing} = missing # face stabilisation 
-    ke     ::Union{Vector{Float64}, Missing} = missing # viscosity
+    τe     ::Union{Vector{Float64}, Missing} = missing # element stabilisation 
+    ke     ::Union{Vector{Float64}, Missing} = missing # element viscosity
+    λ      ::Union{Vector{Float64}, Missing} = missing # viscosity integral over element
     phase  ::Union{Vector{Float64}, Missing} = missing # phase
+    δ      ::Union{Vector{Float64}, Missing} = missing # anisotropy factor
+    N_x    ::Union{Vector{Float64}, Missing} = missing # director vector x
+    N_y    ::Union{Vector{Float64}, Missing} = missing # director vector y
 end
 
 #--------------------------------------------------------------------#
@@ -120,8 +125,13 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     mesh.yf                 = trimesh.pointlist[2,mesh.nv+1:end]
     mesh.bc                 = trimesh.pointmarkerlist[mesh.nv+1:end]
     mesh.phase              = trimesh.triangleattributelist[:] 
-    mesh.ke                 = ones(Float64,mesh.nel)
-    mesh.τ                  = zeros(Float64,mesh.nf)
+    mesh.δ                  =  ones(Float64,mesh.nel) # Default assume isotropic viscosity
+    mesh.N_x                =  ones(Float64,mesh.nel) # Default assume flat anisotropy
+    mesh.N_x                = zeros(Float64,mesh.nel)
+    if inclusion==0 mesh.phase = ones(mesh.nel) end 
+    mesh.ke                 =  ones(Float64,mesh.nel)
+    mesh.τ                  = zeros(Float64,mesh.nf)   # for each face
+    mesh.τe                 = zeros(Float64,mesh.nel)  # for each element
     nel                     = mesh.nel
     mesh.nn_el              = 3
     mesh.nf_el              = 3
@@ -157,6 +167,7 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     mesh.Γ   = zeros(Float64, mesh.nel,mesh.nf_el)
     mesh.e2e = zeros(  Int64, mesh.nel,mesh.nf_el)
     mesh.ke  =  ones(Float64, mesh.nel)
+    mesh.λ   = zeros(Float64, mesh.nel)
     # Receive arrays from Triangulate
     vorodeges = zeros(Int64,size(vorout.edgelist))
     vorodeges[1,:] .= vorout.edgelist[1,:]
@@ -201,7 +212,7 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
 
     return mesh
     
-    end
+end
 
 #--------------------------------------------------------------------#
 
@@ -234,5 +245,127 @@ function LoadExternalMesh( res, η )
     mesh.phase = data["phase"][:]
     mesh.bc    = data["bc"][:]
     mesh.ke    = η[Int64.(mesh.phase)]
+    mesh.δ     =  ones(Float64,mesh.nel) # Default assume isotropic viscosity
+    mesh.N_x   =  ones(Float64,mesh.nel) # Default assume flat anisotropy
+    mesh.N_x   = zeros(Float64,mesh.nel)
     return mesh
+end
+
+#--------------------------------------------------------------------#
+
+@doc """
+Generate triangular mesh and reads in externally generated mesh and populate FCFV_Mesh() structure.
+""" LoadExternalMesh2
+
+function LoadExternalMesh2( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC=[1; 1; 1; 1;], area = ((xmax-xmin)/nx)*((ymax-ymin)/ny), no_pts_incl = Int64(floor(1.0*pi*R/sqrt(((xmax-xmin)/nx)^2+((ymax-ymin)/ny)^2))); nnel=3, npel=1, xp_in=0, yp_in=0, tp_in=0  )
+    
+    file = matopen("./meshes/square_TRI_H1.mat")
+    xf  = read(file, "xf") # note that this does NOT introduce a variable ``varname`` into scope
+    yf  = read(file, "yf") # note that this does NOT introduce a variable ``varname`` into scope
+    e2f = read(file, "e2f") # note that this does NOT introduce a variable ``varname`` into scope
+    xv  = read(file, "xv") # note that this does NOT introduce a variable ``varname`` into scope
+    yv  = read(file, "yv") # note that this does NOT introduce a variable ``varname`` into scope
+    e2v = read(file, "e2v") # note that this does NOT introduce a variable ``varname`` into scope
+    bc  = read(file,  "bc") # note that this does NOT introduce a variable ``varname`` into scope
+    close(file)
+
+    # Read resulting mesh
+    mesh                    = FCFV_Mesh()
+    mesh.type               = "UnstructTriangles"
+    mesh.nel                = size(e2f,1)
+    mesh.e2v                = e2v
+    mesh.nv                 = length(xv)
+    mesh.e2f                = Int64.(e2f)
+    mesh.nf                 = maximum(e2f)
+    mesh.xv                 = xv
+    mesh.yv                 = yv
+    mesh.xf                 = xf
+    mesh.yf                 = yf
+    mesh.bc                 = bc
+    mesh.phase              = ones(Int64,mesh.nel) 
+    # if inclusion==0 mesh.phase = ones(mesh.nel) end 
+    mesh.ke                 = ones(Float64,mesh.nel)
+    mesh.τ                  = zeros(Float64,mesh.nf)   # for each face
+    mesh.τe                 = zeros(Float64,mesh.nel)  # for each element
+    nel                     = mesh.nel
+    mesh.nn_el              = 3
+    mesh.nf_el              = 3
+    Ωe                      = zeros(nel)
+    xc                      = zeros(nel)
+    yc                      = zeros(nel)
+    mesh.δ                  =  ones(Float64,mesh.nel) # Default assume isotropic viscosity
+    mesh.N_x                =  ones(Float64,mesh.nel) # Default assume flat anisotropy
+    mesh.N_x                = zeros(Float64,mesh.nel)
+    # Compute volumes of triangles - use vertices coordinates
+    for iel=1:nel
+        xv1 = mesh.xv[mesh.e2v[iel,1]]
+        yv1 = mesh.yv[mesh.e2v[iel,1]]
+        xv2 = mesh.xv[mesh.e2v[iel,2]]
+        yv2 = mesh.yv[mesh.e2v[iel,2]]
+        xv3 = mesh.xv[mesh.e2v[iel,3]]
+        yv3 = mesh.yv[mesh.e2v[iel,3]]
+        a         = sqrt((xv1-xv2)^2 + (yv1-yv2)^2)
+        b         = sqrt((xv2-xv3)^2 + (yv2-yv3)^2)
+        c         = sqrt((xv1-xv3)^2 + (yv1-yv3)^2)
+        s         = 1/2*(a+b+c)
+        Ωe[iel]   = sqrt(s*(s-a)*(s-b)*(s-c))
+        xc[iel]   = 1.0/3.0*(xv1 + xv2 + xv3)
+        yc[iel]   = 1.0/3.0*(yv1 + yv2 + yv3)
+    end
+    mesh.xc     = xc
+    mesh.yc     = yc
+    mesh.Ω      = Ωe
+    # Local numbering
+    nodeA = [3 2 1]        # Modified for this specific mesh... beurk!
+    nodeB = [1 3 2]
+    # Compute normal to faces
+    mesh.n_x = zeros(Float64, mesh.nel, mesh.nf_el)
+    mesh.n_y = zeros(Float64, mesh.nel, mesh.nf_el)
+    mesh.Γ   = zeros(Float64, mesh.nel, mesh.nf_el)
+    mesh.e2e = zeros(  Int64, mesh.nel, mesh.nf_el)
+    mesh.ke  =  ones(Float64, mesh.nel)
+    mesh.λ   = zeros(Float64, mesh.nel)
+    # Receive arrays from Triangulate
+    # # vorodeges = zeros(Int64,size(vorout.edgelist))
+    # # vorodeges[1,:] .= vorout.edgelist[1,:]
+    # # vorodeges[2,:] .= vorout.edgelist[2,:]
+    # # seglist   = zeros(Int64,size(trimesh.edgelist))
+    # # seglist[1,:]   .= trimesh.edgelist[1,:]
+    # # seglist[2,:]   .= trimesh.edgelist[2,:]
+
+    # Assemble FCFV elements
+    @inbounds for iel=1:mesh.nel 
+        for ifac=1:mesh.nf_el
+            # Face 
+            nodei  = mesh.e2f[iel,ifac]
+            # Neighbouring element for this face
+            # ele1 = vorodeges[1,nodei]
+            # ele2 = vorodeges[2,nodei]
+            # iel2 = (iel==ele1) * ele2 + (iel==ele2) * ele1;
+            # mesh.e2e[iel,ifac] = iel2;
+            # Vertices
+            vert1  = mesh.e2v[iel,nodeA[ifac]]
+            vert2  = mesh.e2v[iel,nodeB[ifac]]
+            bc     = mesh.bc[nodei]
+            dx     = (mesh.xv[vert1] - mesh.xv[vert2] )
+            dy     = (mesh.yv[vert1] - mesh.yv[vert2] )
+            Γi     = sqrt(dx^2 + dy^2);
+            # Face normal
+            n_x  = -dy/Γi
+            n_y  =  dx/Γi
+            # Third vector
+            v_x  = mesh.xf[nodei] - mesh.xc[iel]
+            v_y  = mesh.yf[nodei] - mesh.yc[iel]
+            # Check whether the normal points outwards
+            dot                 = n_x*v_x + n_y*v_y 
+            mesh.n_x[iel,ifac]  = ((dot>=0.0)*n_x - (dot<0.0)*n_x)
+            mesh.n_y[iel,ifac]  = ((dot>=0.0)*n_y - (dot<0.0)*n_y)
+            mesh.Γ[iel,ifac]    = Γi
+            # Face stabilisation
+            mesh.τ[nodei] = τr 
+        end
+    end    
+
+    return mesh
+    
 end
