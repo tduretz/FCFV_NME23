@@ -130,8 +130,8 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     mesh.N_x                = zeros(Float64,mesh.nel)
     if inclusion==0 mesh.phase = ones(mesh.nel) end 
     mesh.ke                 =  ones(Float64,mesh.nel)
-    mesh.τ                  = zeros(Float64,mesh.nf)   # for each face
-    mesh.τe                 = zeros(Float64,mesh.nel)  # for each element
+    mesh.τ                  = τr*ones(Float64,mesh.nf)   # for each face
+    mesh.τe                 = τr*ones(Float64,mesh.nel)  # for each element
     nel                     = mesh.nel
     mesh.nn_el              = 3
     mesh.nf_el              = 3
@@ -285,8 +285,8 @@ function LoadExternalMesh2( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, B
     mesh.phase              = ones(Int64,mesh.nel) 
     # if inclusion==0 mesh.phase = ones(mesh.nel) end 
     mesh.ke                 = ones(Float64,mesh.nel)
-    mesh.τ                  = zeros(Float64,mesh.nf)   # for each face
-    mesh.τe                 = zeros(Float64,mesh.nel)  # for each element
+    mesh.τ                  = τr*ones(Float64,mesh.nf)   # for each face
+    mesh.τe                 = τr*ones(Float64,mesh.nel)  # for each element
     nel                     = mesh.nel
     mesh.nn_el              = 3
     mesh.nf_el              = 3

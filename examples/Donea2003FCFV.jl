@@ -10,8 +10,8 @@ function SetUpProblem!(mesh, P, Vx, Vy, σxx, σyy, σxy, VxDir, VyDir, σxxNeu,
     for in=1:mesh.nf
         x         = mesh.xf[in]
         y         = mesh.yf[in]
-        VxDir[in] = Stokes2D_SolKz_Zhong1996( [x; y] ).V[1]
-        VyDir[in] = Stokes2D_SolKz_Zhong1996( [x; y] ).V[2]
+        VxDir[in] = Stokes2D_Donea2003( [x; y] ).V[1]
+        VyDir[in] = Stokes2D_Donea2003( [x; y] ).V[2]
     end
     # Evaluate analytics on barycentres
     Ni      = zeros(nnel)
@@ -19,15 +19,15 @@ function SetUpProblem!(mesh, P, Vx, Vy, σxx, σyy, σxy, VxDir, VyDir, σxxNeu,
     for e=1:mesh.nel
         x        = mesh.xc[e]
         y        = mesh.yc[e]
-        mesh.ke[e] = Stokes2D_SolKz_Zhong1996( [x; y] ).η
-        P[e]   =  Stokes2D_SolKz_Zhong1996( [x; y] ).p
-        Vx[e]  =  Stokes2D_SolKz_Zhong1996( [x; y] ).V[1]
-        Vy[e]  =  Stokes2D_SolKz_Zhong1996( [x; y] ).V[2]
+        mesh.ke[e] = 1.0
+        P[e]   =  Stokes2D_Donea2003( [x; y] ).p
+        Vx[e]  =  Stokes2D_Donea2003( [x; y] ).V[1]
+        Vy[e]  =  Stokes2D_Donea2003( [x; y] ).V[2]
         σxx[e] = 0.0
         σyy[e] = 0.0
         σxy[e] = 0.0
-        sx[e]  = 0.0
-        sy[e]  = -Stokes2D_SolKz_Zhong1996( [x; y] ).ρ
+        sx[e]  = Stokes2D_Donea2003( [x; y] ).s[1]
+        sy[e]  = Stokes2D_Donea2003( [x; y] ).s[2]
         # Numbering and element nodes
         nodes    = mesh.e2v[e,:]
         X        = [mesh.xv[nodes] mesh.yv[nodes]]
@@ -35,7 +35,7 @@ function SetUpProblem!(mesh, P, Vx, Vy, σxx, σyy, σxy, VxDir, VyDir, σxxNeu,
             # Global coordinate of integration points
             Ni .= N[ip,:,:]
             xi .= Ni'*X
-            ηip[e,ip] = Stokes2D_SolKz_Zhong1996( X ).η
+            ηip[e,ip] = 1.0
         end
     end
     return
@@ -62,12 +62,12 @@ function SolKz(n)
     # solver      = :PowellHestenesLU      # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
     Formulation = :SymmetricGradient       # :Gradient / :SymmetricGradient
     # Formulation = :Gradient              # :Gradient / :SymmetricGradient
-    τr          = 10                       # Stabilisation
+    τr          = 1                        # Stabilisation
     γ           = 5e3                      # Penalty factor for Powell-Hestenes solvers
     ϵ           = 1e-8                     # Tolerance of Powell-Hestenes solvers 
 
     # Generate mesh 
-    nx, ny = n*100, n*100  # initial point density in x and y for triangulation 
+    nx, ny = n*8, n*8  # initial point density in x and y for triangulation 
     if Mesher==:Delaunay       mesh = MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, 0, R, BC, ((xmax-xmin)/nx)*((ymax-ymin)/ny), 200 ) end
     if Mesher==:AdvancingFront mesh = LoadExternalMesh2( nx, ny, xmin, xmax, ymin, ymax, τr, 0, R, BC, ((xmax-xmin)/nx)*((ymax-ymin)/ny), 200 ) end
 
@@ -147,7 +147,7 @@ function SolKz(n)
 
     # Assemble element matrices and RHS
     @printf("---> Compute element matrices:\n") 
-    @time Kuu, Muu, Kup, fu, fp = ElementAssemblyLoopNEW(mesh, ae, be, ze, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation);
+    @time Kuu, Muu, Kup, fu, fp = ElementAssemblyLoop(mesh, ae, be, ze, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation);
     # @time Kuu, Muu, Kup, fu, fp = ElementAssemblyLoopToy(mesh, ae, be, ze, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation);
 
     ########################
@@ -172,9 +172,9 @@ function SolKz(n)
     @printf("---> Compute element values:\n")
     @time Vxe, Vye, Txxe, Tyye, Txye = ComputeElementValues(mesh, Vxh, Vyh, Pe, ae, be, ze, VxDir, VyDir, Formulation)
     
-    # # Evaluate residuals
-    # @printf("---> Evaluate residuals:\n")
-    # ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
+    # Evaluate residuals
+    @printf("---> Evaluate residuals:\n")
+    ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, Formulation)
 
     # Visualise
     @printf("---> Visualisation:\n")
@@ -205,7 +205,8 @@ function SolKz(n)
 
     # PlotMakie( mesh, Vxe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-2.5e-4, max_v=2.5e-4, writefig=false )
     # PlotMakie( mesh, Vya,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-1.25e-4, max_v=1.25e-4, writefig=false )
-    PlotMakie( mesh,  Pe,   xmin, xmax, ymin, ymax; cmap=:jet, min_v=-.1, max_v=.1, writefig=false )
+    PlotMakie( mesh,  Pe,   xmin, xmax, ymin, ymax; cmap=:jet, min_v=-.15, max_v=.15, writefig=false )
+    # PlotMakie( mesh,  sqrt.(Vxe.^2 .+ Vye.^2),   xmin, xmax, ymin, ymax; cmap=:jet, writefig=false )
     # # @time PlotMakie( mesh, sey,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=minimum(sey), max_v=maximum(sey), writefig=false )
     # # @time PlotMakie( mesh, log10.(mesh.ke),  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=minimum(log10.(mesh.ke)), max_v=maximum(log10.(mesh.ke)), writefig=false )
 end

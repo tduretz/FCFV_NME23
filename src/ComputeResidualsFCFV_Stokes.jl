@@ -51,7 +51,7 @@ function ComputeResidualsFCFV_Stokes_o1(Vxh, Vyh, Pe, mesh, ae, be, ze, sex, sey
         for i=1:nfac
             nodei  = mesh.e2f[e,i]
             dAi    = mesh.Γ[e,i]
-            taui   = mesh.τ[e]  
+            taui   = mesh.τ[nodei]  
             n      = [mesh.n_x[e,i]; mesh.n_y[e,i]]
             bci    = mesh.bc[nodei]
             Xi     = 0.0 + (bci== 2)*1.0
