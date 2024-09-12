@@ -72,6 +72,8 @@ function MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, inclusion, R, BC
     if inclusion==1
         # 2. perimeter of the inclusion
         theta0       = collect(LinRange(0.0,2.0*pi,no_pts_incl+1));
+        @show length(theta0)
+
         theta        = theta0[1:end-1] # do not include last point (periodic 0 == 2pi)
         xx           = cos.(theta);
         yy           = sin.(theta);
