@@ -1,4 +1,4 @@
-using FCFV_NME23, Printf, CairoMakie, LinearAlgebra, MathTeXEngine, Makie.GeometryBasics, SparseArrays, ExactSolutions  
+using FCFV_NME23, Printf, CairoMakie, LinearAlgebra, MathTeXEngine, Makie.GeometryBasics, SparseArrays, ExactFieldSolutions  
 #--------------------------------------------------------------------#
 
 @doc """
@@ -117,22 +117,22 @@ function SolKz(n)
     J       = zeros(2,2)
     dNdXi   = zeros(nnel, 2)
     mesh.λ .= 0.
-    for e = 1:mesh.nel
-        nodes   = mesh.e2v[e,:]
-        x       = [mesh.xv[nodes] mesh.yv[nodes]]  
-        for ip=1:nip
-            # Evaluate viscosity on integration points
-            η          = ηip[e,ip]
-            # Jacobian
-            dNdXi     .= dNdX[ip,:,:]
-            mul!(J, x', dNdXi)
-            # Interpolation weight
-            detJ       = J[1,1]*J[2,2] - J[1,2]*J[2,1]
-            w          = ipw[ip] * detJ
-            # Integration
-            mesh.λ[e] += w * 1.0/η
-        end
-    end
+    # for e = 1:mesh.nel
+    #     nodes   = mesh.e2v[e,:]
+    #     x       = [mesh.xv[nodes] mesh.yv[nodes]]  
+    #     for ip=1:nip
+    #         # Evaluate viscosity on integration points
+    #         η          = ηip[e,ip]
+    #         # Jacobian
+    #         dNdXi     .= dNdX[ip,:,:]
+    #         mul!(J, x', dNdXi)
+    #         # Interpolation weight
+    #         detJ       = J[1,1]*J[2,2] - J[1,2]*J[2,1]
+    #         w          = ipw[ip] * detJ
+    #         # Integration
+    #         mesh.λ[e] += w * 1.0/η
+    #     end
+    # end
     @show minimum(mesh.λ)
     @show maximum(mesh.λ)
     @show minimum(mesh.δ)
