@@ -1,4 +1,4 @@
-using FCFV_NME23, Printf, CairoMakie, LinearAlgebra, MathTeXEngine, Makie.GeometryBasics, SparseArrays, ExactSolutions  
+using FCFV_NME23, Printf, CairoMakie, LinearAlgebra, MathTeXEngine, Makie.GeometryBasics, SparseArrays, ExactFieldSolutions  
 #--------------------------------------------------------------------#
 
 @doc """
