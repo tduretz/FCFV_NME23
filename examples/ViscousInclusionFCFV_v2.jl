@@ -57,7 +57,7 @@ end
 
 #--------------------------------------------------------------------#
 
-function ViscousInclusion()
+function (@main)()
 
     @printf("Viscous inclusion test using first order FCFV discretisation on triangles\n")
 
@@ -155,4 +155,4 @@ end
 
 #--------------------------------------------------------------------#
 
-ViscousInclusion()
+main()

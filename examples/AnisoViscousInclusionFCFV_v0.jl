@@ -13,10 +13,10 @@ function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σ
         # Face midpoint coordinates
         x,  y        = mesh.xf[in], mesh.yf[in]
         # Dirichlet data
-        vx, vy, p, σxx, σyy, σxy = EvalAnalDani( x, y, R, ηm, ηc, er=0., gr=2. )
+        vx, vy, p, σxx, σyy, σxy = EvalAnalDani( x, y, R, ηm, ηc, er=0., gr=1. )
         VxDir[in], VyDir[in] = vx, vy
         # Neumann data
-        p, ∂vx∂x, ∂vx∂y, ∂vy∂x, ∂vy∂y = Tractions( x, y, R, ηm, ηc, 1, er=0., gr=2. )
+        p, ∂vx∂x, ∂vx∂y, ∂vy∂x, ∂vy∂y = Tractions( x, y, R, ηm, ηc, 1, er=0., gr=1. )
         if Formulation==:Gradient 
             σxxNeu[in] = - p + ηm*∂vx∂x 
             σyyNeu[in] = - p + ηm*∂vy∂y 
@@ -36,7 +36,7 @@ function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σ
     for e=1:mesh.nel
         x                          = mesh.xc[e]
         y                          = mesh.yc[e]
-        vx, vy, pre, σxx, σyy, σxy = EvalAnalDani( x, y, R, ηm, ηc )
+        vx, vy, pre, σxx, σyy, σxy = EvalAnalDani( x, y, R, ηm, ηc, er=0., gr=1. )
         Pa[e]                      = pre
         Vxa[e], Vya[e]             = vx, vy
         σxxa[e], σyya[e], σxya[e]  = σxx, σyy, σxy
@@ -65,9 +65,9 @@ function ViscousInclusion()
     # Physics
     xmin, xmax  = -3.0, 3.0    # Domain extent x
     ymin, ymax  = -3.0, 3.0    # Domain extent y
-    R           = 0.6          # Inclusion radius
-    η           = [1.0 1e3]   # Viscosity matrix/inclusion
-    BC          = [2; 1; 1; 1] # South/East/North/West --- 1: Dirichlet / 2: Neumann
+    R           = 1.0          # Inclusion radius
+    η           = [1.0 1e2]   # Viscosity matrix/inclusion
+    BC          = [1; 1; 1; 1] # South/East/North/West --- 1: Dirichlet / 2: Neumann
 
     # Numerics
     Mesher      = :Delaunay                # :Delaunay / :AdvancingFront (load external mesh)
@@ -80,7 +80,7 @@ function ViscousInclusion()
     ϵ           = 1e-8                     # Tolerance of Powell-Hestenes solvers 
 
     # Generate mesh 
-    nx, ny = 120, 120  # initial point density in x and y for triangulation 
+    nx, ny = 20, 20  # initial point density in x and y for triangulation 
     if Mesher==:Delaunay       mesh = MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, 1, R, BC, ((xmax-xmin)/nx)*((ymax-ymin)/ny), 200 ) end
     if Mesher==:AdvancingFront mesh = LoadExternalMesh( mesh_res, η) end
     @printf("Mesh informations:\n")
@@ -156,7 +156,8 @@ function ViscousInclusion()
     
     # Compute mesh properties for FCFV
     @printf("---> Compute FCFV vectors:\n")
-    mesh.τe         .= τr.*ones(mesh.nel)  # Stabilisation per element
+    mesh.τe         .= 40  #40.*ones(mesh.nel)  # Stabilisation per element
+    @show minimum(mesh.τe), maximum(mesh.τe)
     @time ae, be, ze = ComputeFCFV(mesh, sex, sey, VxDir, VyDir, σxxNeu, σyyNeu, σxyNeu, σyxNeu, τr, Formulation)
     
     # Assemble element matrices and RHS
@@ -181,9 +182,9 @@ function ViscousInclusion()
     @printf("---> Visualisation:\n")
 
     V_pert = sqrt.( (Vxe .- (2*mesh.yc)).^2 .+ (Vye).^2 )
-    @time PlotMakie( mesh, V_pert,  xmin, xmax, ymin, ymax; cmap=:jet, min_v=0., max_v=0.6, writefig=false )
+    # @time PlotMakie( mesh, V_pert,  xmin, xmax, ymin, ymax; cmap=:jet, min_v=0., max_v=0.6, writefig=false )
     # @time PlotMakie( mesh, mesh.δ,  xmin, xmax, ymin, ymax; cmap=:jet, writefig=false )
-
+    @time PlotMakie( mesh, Vye,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=minimum(Vya), max_v=maximum(Vya), writefig=false )
     # @time PlotMakie( mesh, Vxe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=false )
     # @time PlotMakie( mesh, Pe,  xmin, xmax, ymin, ymax; cmap=:turbo, min_v=-3, max_v=3, writefig=false )
     # @time PlotMakie( mesh, mesh.Ω ./ mesh.λ,  xmin, xmax, ymin, ymax; cmap=:turbo, writefig=false )

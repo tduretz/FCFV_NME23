@@ -37,7 +37,7 @@ function ComputeFCFV(mesh, sex, sey, VxDir, VyDir, SxxNeu, SyyNeu, SxyNeu, SyxNe
             β[e,1]       += (bc==1) * Γi*τe*VxDir[nodei]   # Dirichlet
             β[e,2]       += (bc==1) * Γi*τe*VyDir[nodei]   # Dirichlet
             α[e]         +=           Γi*τe
-            mesh.τ[nodei] =  τe 
+            # mesh.τ[nodei] =  τe 
         end
     end
     return α, β, Ζ
@@ -77,11 +77,11 @@ function ComputeElementValues(mesh, Vxh, Vyh, Pe, α, β, Ζ, VxDir, VyDir, Form
             Γi    = mesh.Γ[e,i]
             ni_x  = mesh.n_x[e,i]
             ni_y  = mesh.n_y[e,i]
-            τi    = mesh.τ[nodei]  # Det face stabilisation equal to element stabilisation
+            τe    = mesh.τe[e]  # Det face stabilisation equal to element stabilisation
 
             # Assemble
-            Vxe[e]  += (bc!=1) *  Γi*τi*Vxh[nodei]/α[e]
-            Vye[e]  += (bc!=1) *  Γi*τi*Vyh[nodei]/α[e]
+            Vxe[e]  += (bc!=1) *  Γi*τe*Vxh[nodei]/α[e]
+            Vye[e]  += (bc!=1) *  Γi*τe*Vyh[nodei]/α[e]
             τxxe[e] += (bc!=1) *  D[1,1]/Ω*Γi*ni_x*Vxh[nodei]
             τyye[e] += (bc!=1) *  D[2,2]/Ω*Γi*ni_y*Vyh[nodei]
             τxye[e] += (bc!=1) *  D[1,2]*0.5*( 1.0/Ω*Γi*( ni_x*Vyh[nodei] + ni_y*Vxh[nodei] ) )
@@ -126,7 +126,7 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
             bci   = mesh.bc[nodei]
             ȷ     = 0.0 + (bci==-1)*1.0 # indicates interface
             Γi    = mesh.Γ[e,i]
-            τi    = mesh.τ[nodei]  
+            τi    = mesh.τe[e]  
                 
             for j=1:mesh.nf_el
 
@@ -134,7 +134,8 @@ function ElementAssemblyLoop(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu, �
                 nodej = mesh.e2f[e,j]
                 bcj   = mesh.bc[nodej]   
                 Γj    = mesh.Γ[e,j]
-                τj    = mesh.τ[nodej]  
+                # τj    = mesh.τ[nodej]  
+                τj    = mesh.τe[e] 
                 δ     = 0.0 + (i==j)*1.0    # Delta operator
                 on    = (bci!=1) & (bcj!=1) # Activate nodal connection if not Dirichlet!
                         
@@ -253,7 +254,8 @@ function ElementAssemblyLoopNEW(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu
             bci   = mesh.bc[nodei]
             ȷ     = 0.0 + (bci==-1)*1.0 # indicates interface
             Γi    = mesh.Γ[e,i]
-            τi    = mesh.τ[nodei]  
+            # τi    = mesh.τ[nodei]
+            τi    = mesh.τe[e]   
                 
             for j=1:mesh.nf_el
 
@@ -261,7 +263,8 @@ function ElementAssemblyLoopNEW(mesh, α, β, Ζ, VxDir, VyDir, σxxNeu, σyyNeu
                 nodej = mesh.e2f[e,j]
                 bcj   = mesh.bc[nodej]   
                 Γj    = mesh.Γ[e,j]
-                τj    = mesh.τ[nodej]  
+                # τj    = mesh.τ[nodej]  
+                τj    = mesh.τe[e] 
                 δ     = i==j                # Delta operator
                 on    = (bci!=1) & (bcj!=1) # Activate nodal connection if not Dirichlet!
                         
