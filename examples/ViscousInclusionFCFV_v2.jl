@@ -36,12 +36,12 @@ function SetUpProblem!(mesh, Pa, Vxa, Vya, σxxa, σyya, σxya, VxDir, VyDir, σ
         x                               = mesh.xc[e]
         y                               = mesh.yc[e]
         vx, vy, pre, σxx, σyy, σxy      = EvalAnalDani( x, y, R, ηm, ηc )
-        Pa[e]                         = pre
-        Vxa[e], Vya[e]              = vx, vy
-        σxxa[e], σyya[e], σxya[e] = σxx, σyy, σxy
-        sx[e],  sy[e]               = 0.0, 0.0
+        Pa[e]                           = pre
+        Vxa[e], Vya[e]                  = vx, vy
+        σxxa[e], σyya[e], σxya[e]       = σxx, σyy, σxy
+        sx[e],  sy[e]                   = 0.0, 0.0
         out                             = mesh.phase[e] == 1.0
-        mesh.ke[e]                    = (out==1) * 1.0*ηm + (out!=1) * 1.0*ηc   
+        mesh.ke[e]                      = (out==1) * 1.0*ηm + (out!=1) * 1.0*ηc   
         # Numbering and element nodes
         nodes    = mesh.e2v[e,:]
         x        = [mesh.xv[nodes] mesh.yv[nodes]]
@@ -73,11 +73,11 @@ function (@main)()
     mesh_res    = :MedRes                  # :LowRes / :MedRes / :HighRes     
     solver      = :PowellHestenesCholesky  # :CoupledBackslash / :=PowellHestenesCholesky / :=PowellHestenesLU
     Formulation = :SymmetricGradient       # :Gradient / :SymmetricGradient
-    τr          = 2.                        # Stabilisation
+    τr          = 2.                       # Stabilisation
     γ           = 1e5                      # Penalty factor for Powell-Hestenes solvers
     ϵ           = 1e-8 
 
-       # Generate mesh 
+    # Generate mesh 
     nx, ny = 60, 60  # initial point density in x and y for triangulation 
     if Mesher==:Delaunay       mesh = MakeTriangleMesh( nx, ny, xmin, xmax, ymin, ymax, τr, 1, R, BC, ((xmax-xmin)/nx)*((ymax-ymin)/ny), 200 ) end
     if Mesher==:AdvancingFront mesh = LoadExternalMesh( mesh_res, η) end
